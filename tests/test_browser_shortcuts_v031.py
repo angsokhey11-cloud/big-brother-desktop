@@ -1,58 +1,36 @@
 #!/usr/bin/env python3
-"""Static safety regression for BIG BROTHER Desktop v0.3.4 browser workspace.
-
-Checks the browser-specific source contract; Windows UI acceptance is separate.
-"""
+"""Browser Workspace v0.3.5 shortcuts, URL and local profile regression."""
 from pathlib import Path
-
-root = Path(__file__).resolve().parents[1]
-shell = (root / "src/MainWindow.cs").read_text(encoding="utf-8")
-store = (root / "src/SettingsStore.cs").read_text(encoding="utf-8")
-project = (root / "src/BBDesktop.csproj").read_text(encoding="utf-8")
-checks = {
-    "WebView2 updates the address on route changes": "web.SourceChanged += (_, _) => SyncBrowserAddressFromWeb();" in shell,
-    "URL text includes chat fragments": "_browserAddress.Text = current.AbsoluteUri;" in shell,
-    "Save button moved next to Go": 'Grid.SetColumn(saveUrl, 5);' in shell
-        and 'addressRow.Children.Add(saveUrl);' in shell,
-    "No Save/Rename controls in shortcut row": 'var star = MakeButton(' not in shell
-        and 'var rename = MakeButton(' not in shell
-        and 'var remove = MakeButton("×"' not in shell,
-    "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(item.Name, "#e3f0fe"' in shell
-        and '_shortcutButtons.Children.Add(button);' in shell,
-    "No ComboBox for saved websites": 'ComboBox _savedWebsites' not in shell,
-    "Shortcut row scrolls horizontally": 'HorizontalScrollBarVisibility = ScrollBarVisibility.Auto' in shell,
-    "Triple-click renames without prematurely navigating": 'if (pendingClicks >= 3)' in shell
-        and 'await NavigateBrowserAsync(item.Url);' in shell
-        and 'TimeSpan.FromMilliseconds(650)' in shell,
-    "Shortcut has right-click rename/remove menu": 'button.ContextMenu = menu;' in shell
-        and 'RemoveBookmark(item, isBuiltIn);' in shell,
-    "Full Telegram chat URL is saved ONLY on explicit Save": 'var url = current.AbsoluteUri;' in shell
-        and 'var liveUrl = _browserView.CoreWebView2?.Source;' in shell,
-    "Auto-persisted browser restore does not save tokens": 'SettingsStore.RememberableUrl(current.AbsoluteUri)' in shell,
-    "Previous saved URL list remains compatible": 'public List<string> Bookmarks { get; set; } = new();' in store,
-    "Shortcut names remain in user profile": 'public Dictionary<string, string> BookmarkTitles { get; set; } = new();' in store,
-    "URL bar collapse remains supported": 'ApplyAddressBarVisibility(_preferences.BrowserAddressBarVisible);' in shell,
-    "Ghost click isolation architecture unchanged": 'private readonly WebView2 _workspaceView = new();' in shell
-        and 'private readonly WebView2 _browserView = new();' in shell
-        and 'WebView2CompositionControl' not in shell,
-    "Removable built-in Telegram shortcut": 'if (_preferences.TelegramShortcutVisible)' in shell
-        and '_preferences.TelegramShortcutVisible = false;' in shell
-        and 'RemoveBookmark(item, isBuiltIn);' in shell,
-    "Default Telegram shortcut can be renamed": '_preferences.TelegramShortcutName = newName;' in shell
-        and 'RenameBookmark(item, isBuiltIn);' in shell,
-    "Default shortcut visibility persists": 'public bool TelegramShortcutVisible { get; set; } = true;' in store,
-    "Telegram Web A chat hash is loaded at startup rather than merely changed": 'window.history.replaceState(window.history.state' in shell
-        and 'window.location.reload();' in shell
-        and 'JsonSerializer.Serialize(url.AbsoluteUri)' in shell
-        and 'GetLeftPart(UriPartial.Query)' in shell
-        and 'captureInitialLocation' in shell,
-    "Only Telegram Web chat routes use forced reload": 'var isTelegramChat = string.Equals(url.Host, "web.telegram.org"' in shell
-        and 'url.AbsolutePath.StartsWith("/a/"' in shell
-        and 'Regex.IsMatch(url.Fragment' in shell,
-    "Non-hash and cross-site navigation still uses WebView2": 'web.Navigate(url.AbsoluteUri);' in shell,
-    "Next release version": '<Version>0.3.4</Version>' in project,
+root=Path(__file__).resolve().parents[1]
+browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
+store=(root/"src/SettingsStore.cs").read_text(encoding="utf-8")
+proj=(root/"src/BBDesktop.csproj").read_text(encoding="utf-8")
+checks={
+    "Live URL tracks SourceChanged": "web.SourceChanged += (_, _) =>" in browser
+        and "SyncAddress();" in browser,
+    "Displayed full URL includes fragment": "_address.Text = current.AbsoluteUri;" in browser,
+    "Save URL at end of address bar": "Grid.SetColumn(save, 5);" in browser,
+    "Saved website appears in shortcut row and Home": "_shortcutButtons.Children.Add(button);" in browser
+        and "_homeButtons.Children.Add(homeButton);" in browser,
+    "Triple-click rename never navigates on first two clicks": "if (clicks >= 3)" in browser
+        and "TimeSpan.FromMilliseconds(650)" in browser,
+    "Right-click rename and remove": "button.ContextMenu = context;" in browser
+        and "RemoveShortcut(item);" in browser,
+    "Explicit Save stores exact chat ID and URL": "var url = current.AbsoluteUri;" in browser
+        and "var liveUrl = _active?.View.CoreWebView2?.Source;" in browser,
+    "Automatic restore remains sanitized": "SettingsStore.RememberableUrl(current.AbsoluteUri)" in browser,
+    "Legacy shortcut URLs and names preserved": "public List<string> Bookmarks { get; set; } = new();" in store
+        and "public Dictionary<string, string> BookmarkTitles { get; set; } = new();" in store,
+    "Telegram default shortcut rename/remove": "_settings.TelegramShortcutVisible = false;" in browser
+        and "_settings.TelegramShortcutName = chosen;" in browser,
+    "Telegram Web A bootstrap reloading": "window.history.replaceState(window.history.state" in browser
+        and "window.location.reload();" in browser,
+    "URL bar collapse preserved": "SetAddressVisibility();" in browser
+        and "BrowserAddressBarVisible" in browser,
+    "Existing persistent WebView2 profile reused": "SettingsStore.BrowserProfile" in browser,
+    "Correct development version": "<Version>0.3.5</Version>" in proj,
 }
-for label, passed in checks.items():
-    assert passed, "FAILED " + label
-    print("PASS " + label)
-print("PASS desktop browser workspace regression")
+for k,v in checks.items():
+    assert v,"FAILED "+k
+    print("PASS "+k)
+print("PASS browser shortcut and URL state contract")

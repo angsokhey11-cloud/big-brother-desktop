@@ -29,6 +29,7 @@ internal sealed class MainWindow : Window
     private const string TelegramUrl = "https://web.telegram.org/";
 
     private readonly WorkstationSettings _preferences = SettingsStore.Load();
+    private readonly GlobalBrowserWorkspace _globalBrowser;
     private readonly WebView2 _workspaceView = new();
     private readonly WebView2 _browserView = new();
     private readonly Canvas _overlay = new();
@@ -165,6 +166,7 @@ internal sealed class MainWindow : Window
 
     public MainWindow()
     {
+        _globalBrowser = new GlobalBrowserWorkspace(this, _preferences);
         Title = DesktopTitle;
         Width = 1380;
         Height = 880;
@@ -176,13 +178,13 @@ internal sealed class MainWindow : Window
         // Explicit WPF taskbar/title-bar icon; EXE/installer have the same brand.
         Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/big-brother.ico", UriKind.Absolute));
         SourceInitialized += InstallNativeUpdateMenu;
-        SourceInitialized += (_, _) => InitializeNativeBrowserWindows();
+        SourceInitialized += (_, _) => _globalBrowser.Initialize();
         Activated += (_, _) => Dispatcher.BeginInvoke(
-            new Action(RefreshNativeBrowserWindows), DispatcherPriority.ContextIdle);
+            new Action(_globalBrowser.Refresh), DispatcherPriority.ContextIdle);
         Deactivated += (_, _) => Dispatcher.BeginInvoke(
-            new Action(HideNativeWindowsIfAnotherAppActive), DispatcherPriority.ContextIdle);
-        LocationChanged += (_, _) => PositionNativeBrowserWindows();
-        SizeChanged += (_, _) => PositionNativeBrowserWindows();
+            new Action(_globalBrowser.HideIfOtherAppActive), DispatcherPriority.ContextIdle);
+        LocationChanged += (_, _) => _globalBrowser.Position();
+        SizeChanged += (_, _) => _globalBrowser.Position();
         // Desktop must never retain a browser-panel pointer capture when the
         // user switches to Excel, Chrome, another program, or the taskbar.
         Deactivated += (_, _) => ReleaseBrowserMouseCapture();
@@ -191,11 +193,11 @@ internal sealed class MainWindow : Window
             if (WindowState == WindowState.Minimized)
             {
                 ReleaseBrowserMouseCapture();
-                HideNativeBrowserWindows();
+                _globalBrowser.Hide();
             }
             else
             {
-                Dispatcher.BeginInvoke(new Action(RefreshNativeBrowserWindows),
+                Dispatcher.BeginInvoke(new Action(_globalBrowser.Refresh),
                     DispatcherPriority.ContextIdle);
             }
         };
@@ -222,14 +224,14 @@ internal sealed class MainWindow : Window
         Closing += (_, _) =>
         {
             ReleaseBrowserMouseCapture();
-            HideNativeBrowserWindows();
-            RememberPanel();
+            _globalBrowser.Hide();
             SettingsStore.Save(_preferences);
         };
         Closed += (_, _) =>
         {
             // The user data directories are not deleted. Only native WebView2
             // handles are disposed after the application window has closed.
+            _globalBrowser.Dispose();
             _browserView.Dispose();
             _workspaceView.Dispose();
         };
@@ -304,8 +306,8 @@ internal sealed class MainWindow : Window
             RefreshNativeBrowserWindows();
         };
 
-        BuildBrowserPanel();
-        BuildBubble();
+        // The old Invoice-only native browser is superseded by the
+        // dashboard-wide GlobalBrowserWorkspace. No old bubble is created.
     }
 
     private void InitializeNativeBrowserWindows()
@@ -1133,20 +1135,17 @@ internal sealed class MainWindow : Window
             };
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.AreHostObjectsAllowed = false;
-            web.Settings.IsWebMessageEnabled = true;
+            web.Settings.IsWebMessageEnabled = false;
             web.Settings.IsStatusBarEnabled = false;
-            web.WebMessageReceived += OnWorkspaceMessage;
-            web.NavigationStarting += (_, _) =>
-                ApplyInvoiceScope(0, 0, 0, 0, 0, 0, false);
+            // Remove old Invoice-scoped iframe polling and use the global
+            // native Browser Workspace instead.
             await web.AddScriptToExecuteOnDocumentCreatedAsync(HideWebInvoiceBubbleScript);
-            await web.AddScriptToExecuteOnDocumentCreatedAsync(InvoiceScopeScript);
             web.NavigationCompleted += async (_, e) =>
             {
                 _workspaceStatus.Text = e.IsSuccess ? "Installed Dashboard / function loaded" : "Local accounting page failed to load";
                 try
                 {
                     await web.ExecuteScriptAsync(HideWebInvoiceBubbleScript);
-                    await web.ExecuteScriptAsync(InvoiceScopeScript);
                 }
                 catch { /* This may occur during navigation. */ }
             };

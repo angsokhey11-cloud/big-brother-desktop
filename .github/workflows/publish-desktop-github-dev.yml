@@ -100,6 +100,12 @@ jobs:
           python tests/test_browser_shortcuts_v031.py
           if ($LASTEXITCODE -ne 0) { throw "Browser workspace regression failed" }
 
+      - name: Verify dashboard-wide Home, tabs, Close and browser isolation
+        shell: pwsh
+        run: |
+          python tests/test_global_browser_v035.py
+          if ($LASTEXITCODE -ne 0) { throw "Global browser regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |

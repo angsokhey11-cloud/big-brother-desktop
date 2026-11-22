@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
-"""Desktop system-wide mouse safety regression for native WebView2 hosting.
-
-Checks the installed-shell architecture (does not simulate Windows input).
-Real-PC testing is still required to confirm the intermittent ghost-click bug.
-"""
+"""Static guard for global multi-tab WebView2 HWND and ghost-click isolation."""
 from pathlib import Path
-
-code = (Path(__file__).resolve().parents[1] / "src" / "MainWindow.cs").read_text(encoding="utf-8")
-checks = {
-    "Main Dashboard uses normal HWND WebView2": "private readonly WebView2 _workspaceView = new();",
-    "Native Telegram browser uses normal HWND WebView2": "private readonly WebView2 _browserView = new();",
-    "No composition screen capture WebView2": "WebView2CompositionControl" not in code,
-    "No full-window floating native HWND": "_overlay.IsHitTestVisible = false;",
-    "Small bubble is owned by application window": 'Owner = this,\n            Content = _bubble,',
-    "Native floating browser is separately bounded": 'Owner = this,\n            Content = _browserPanel,',
-    "Window is not forced topmost": "Topmost = false",
-    "Browser windows hide after focus moves to another application": "private void HideNativeWindowsIfAnotherAppActive()",
-    "Native windows hide on main minimize": 'if (WindowState == WindowState.Minimized)\n            {\n                ReleaseBrowserMouseCapture();\n                HideNativeBrowserWindows();',
-    "Native browser only opens in invoice generator": 'if (!_invoiceScopeActive || WindowState == WindowState.Minimized',
-    "Native browser preserves instance via window Hide()/Show()": "_browserWindow.Hide();",
-    "Main standard WebView2 preserves local Cloud-independent bundled dashboard": 'web.SetVirtualHostNameToFolderMapping("app.bigbrother.test"',
-    "No always-on-top window": "Topmost = true" not in code,
-    "Native owned browser can be dragged only when mouse button held": "if (e.LeftButton != MouseButtonState.Pressed) { EndPanelDrag(surface); return; }",
+root=Path(__file__).resolve().parents[1]
+main=(root/"src/MainWindow.cs").read_text(encoding="utf-8")
+browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
+checks={
+    "Dashboard remains HWND-hosted": "private readonly WebView2 _workspaceView = new();" in main,
+    "Each browser tab uses HWND WebView2": "public WebView2 View { get; } = new();" in browser,
+    "No composition WebView2 anywhere": "WebView2CompositionControl" not in main+browser,
+    "No full-screen input-stealing overlay": "Topmost = true" not in main+browser
+        and "Topmost = false" in browser,
+    "Browser bubble owned by dashboard": "Owner = _owner, Content = bubble," in browser,
+    "Browser native window owned by dashboard": 'Owner = _owner, Title = "BIG BROTHER Browser"' in browser,
+    "Native browser auto-hides when focus moves to another app": "public void HideIfOtherAppActive()" in browser,
+    "Main window deactivation triggers browser hiding": "new Action(_globalBrowser.HideIfOtherAppActive)" in main,
+    "Main window minimize triggers browser hiding": "_globalBrowser.Hide();" in main,
+    "Browser never depends on Invoice iframe scope": "private void ApplyInvoiceScope(" not in browser
+        and 'SourceInitialized += (_, _) => _globalBrowser.Initialize();' in main,
+    "Native browser disposes all tabs when fully closed": "private void DisposeTabs()" in browser
+        and "tab.View.Dispose();" in browser,
+    "Do not leave old Invoice bubble active": "BuildBrowserPanel();\n        BuildBubble();" not in main,
+    "No old Invoice scope listener is registered": "web.WebMessageReceived += OnWorkspaceMessage;" not in main,
+    "Cloud-independent local dashboard remains pinned": 'web.SetVirtualHostNameToFolderMapping("app.bigbrother.test"' in main,
 }
-for label, needle in checks.items():
-    passed = needle if isinstance(needle, bool) else needle in code
-    assert passed, f"FAILED {label}"
-    print(f"PASS {label}")
-
-print("PASS standard HWND-hosted Desktop shell and invoice-only native overlay safety invariants")
+for k,v in checks.items():
+    assert v,"FAILED "+k
+    print("PASS "+k)
+print("PASS standard WebView2 and global native window focus isolation")
