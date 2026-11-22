@@ -54,3 +54,17 @@ Development package publication is controlled by the `desktop-release` branch an
 The current updater is **public development releases only**, not a stable staff release and not cryptographically code-signed. Public GitHub anonymously rate-limits update checks; one check per app launch minimizes this. Never store GitHub private access tokens in the Desktop app. Do not promote to stable until code signing, end-to-end permissions/database/CORS tests, release access controls and a rollback exercise are complete.
 
 Versions before 0.2.4 can be upgraded once with `tools/Bootstrap-GitHub-Updates.ps1`: it downloads the versioned package directly from GitHub Releases, checks the asset SHA256 and NUSPEC identity, and calls the already-installed Velopack updater without uninstalling. Subsequent updates are handled by the app.
+
+## Desktop updater smoke-test milestone v0.2.7
+
+When the approved GitHub development prerelease v0.2.7 is published, use a machine currently running v0.2.6 to test the **actual in-app** flow:
+
+1. With the Desktop open and no unsaved accounting work, close and reopen it.
+2. Verify the Windows titlebar shows v0.2.6 and a new version v0.2.7 prompt appears.
+3. Choose No to confirm postponement does not install silently. Use Alt+Space → Check BIG BROTHER Desktop Updates to invoke it again.
+4. Choose Yes to download (delta update when available). Confirm progress and version label.
+5. On the install/restart prompt, choose No once, then close/reopen the app. It must detect v0.2.7 already downloaded, not fetch the same package a second time.
+6. Confirm install/restart only after finishing all unfinished invoices. Verify the new titlebar is v0.2.7, Dashboard is still local, and the Telegram browser remains signed in if previously authenticated.
+7. Confirm GitHub outage leaves the already installed Dashboard usable. This test does **not** create production accounting records.
+
+The application has no extra custom navigation header, and the floating Telegram browser remains visible only within Invoice Generator.
