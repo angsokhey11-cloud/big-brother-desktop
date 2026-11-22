@@ -28,3 +28,11 @@ Native Windows accounting workstation for BIG BROTHER's **existing online Supaba
 The Windows GitHub Actions workflow fetches the pinned source revisions in `config/modules.lock.json`, bundles public frontend assets, compiles the WPF workstation, and creates a Velopack **Setup.exe** development installer. No installer is a production release until end-to-end sign-in, route, data, print and payment verification is complete.
 
 See `docs/DEVELOPMENT.md` for architecture, packaging, release safety and testing.
+
+## Development updates via GitHub Releases
+
+From Desktop v0.2.4, the installed app checks the public repository's **approved development prereleases** after opening the Dashboard. It asks before downloading a Velopack update package and asks again before installing/restarting. It does **not** redownload a GitHub Actions ZIP or require Chrome. When suitable delta patches exist, Velopack can download a smaller patch; otherwise it falls back to the full update package.
+
+Release packages are published only from the protected-by-process `desktop-release` branch using `.github/workflows/publish-desktop-github-dev.yml`. Normal `main` development commits are not published as updates. This is a development channel, not staff-approved production software. GitHub outages do not stop locally installed accounting interfaces from opening; online Supabase data still needs connectivity.
+
+Already-installed versions **before v0.2.4** do not yet know how to check GitHub Releases. The one-time `tools/Bootstrap-GitHub-Updates.ps1` can upgrade them from an approved GitHub prerelease directly, preserving user settings (no Setup.exe reinstallation). The bootstrap verifies GitHub release SHA256 and the application package identity before invoking the installed Velopack updater. Only run the script after reviewing it and closing the app.
