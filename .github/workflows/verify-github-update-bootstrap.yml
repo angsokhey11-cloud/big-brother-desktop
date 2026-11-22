@@ -66,8 +66,11 @@ jobs:
           $start.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $script + '"'
           $start.UseShellExecute = $false
           $start.RedirectStandardInput = $true
-          $start.RedirectStandardOutput = $true
-          $start.RedirectStandardError = $true
+          # Do not redirect stdout/stderr while waiting: PowerShell's
+          # verbose download progress can otherwise fill the OS pipe buffer
+          # and deadlock the parent waiting for the child to exit.
+          $start.RedirectStandardOutput = $false
+          $start.RedirectStandardError = $false
           $start.CreateNoWindow = $true
           $process = [System.Diagnostics.Process]::Start($start)
           $process.StandardInput.WriteLine('UPDATE')
@@ -77,13 +80,11 @@ jobs:
             $process.Kill()
             throw 'GitHub bootstrap timed out'
           }
-          $stdout = $process.StandardOutput.ReadToEnd()
-          $stderr = $process.StandardError.ReadToEnd()
-          Write-Host $stdout
-          if ($stderr) { Write-Host $stderr }
-          if ($stdout -notmatch 'SUCCESS! BIG BROTHER Desktop v0\.2\.4 is installed') {
-            throw 'GitHub bootstrapping did not report a verified installation'
+          if ($process.ExitCode -ne 0) {
+            throw "GitHub bootstrap returned an error exit code: $($process.ExitCode)"
           }
+          # The next step verifies the actual installed sq.version and
+          # persistent profile marker, rather than trusting console text.
 
       - name: Check upgraded app, identical package identity, and retained settings
         shell: pwsh
