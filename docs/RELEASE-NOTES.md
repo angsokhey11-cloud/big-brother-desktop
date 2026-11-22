@@ -27,3 +27,12 @@ Not a stable production release; full Cloud authentication and accounting workfl
 - **Safe operation**: Updates still require explicit download approval and explicit install/restart confirmation.
 - **Scope**: Desktop shell/updater only. No change to the 32 pinned accounting modules, Supabase schema, stock, banking, A/R, invoices, or accounting values.
 - **Verification**: v0.2.6 → v0.2.7 will be tested on the real installed app. Production staff release is not yet approved.
+
+## BIG BROTHER Desktop v0.2.8 — Sales Support navigation bug
+
+- **Fixed:** Your Customer → Add Customer → Your Customer returns to Your Customer instead of doing nothing.
+- **Fixed:** Your Customer → Customer Map → Your Customer returns to Your Customer instead of doing nothing.
+- Root cause: the two direct Sales Support adapters replaced the Dashboard module iframe URL but did not update `frame.dataset.module`, leaving the Dashboard's same-module optimization convinced Your Customer was still open.
+- A **Desktop-only build-time fix** applies to the exact pinned Dashboard adapters, preserving original sources and existing permissions.
+- Reproduction/regression harness `tests/sales_support_navigation_regression.js` runs in both development and release Windows builds.
+- No change to Cloud/PWA files, staff permissions, customer records, backend, or accounting business logic.

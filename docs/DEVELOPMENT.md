@@ -68,3 +68,12 @@ When the approved GitHub development prerelease v0.2.7 is published, use a machi
 7. Confirm GitHub outage leaves the already installed Dashboard usable. This test does **not** create production accounting records.
 
 The application has no extra custom navigation header, and the floating Telegram browser remains visible only within Invoice Generator.
+
+## Sales Support return navigation regression v0.2.8
+
+Desktop bundle includes two narrowly scoped build-time corrections to the pinned Dashboard JavaScript adapters (not to the Cloud/PWA repositories):
+
+- `supabase-sales-support-add-customer.js`: update `frame.dataset.module` to `sales-support-add-customer` when opening the Add Customer iframe.
+- `supabase-sales-support-customer-map.js`: update `frame.dataset.module` to `sales-support-customer-map` when opening Customer Map.
+
+The regular Dashboard `loadWorkspace('sales-support-your-customer')` then correctly recognizes a module switch and reloads Your Customer. The patch fails the build if the upstream source marker changes. Verify both transitions by clicking the sidebar buttons on the installed Desktop v0.2.8 after approving the GitHub update. No production transactions are required.

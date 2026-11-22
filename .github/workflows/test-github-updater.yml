@@ -1,0 +1,44 @@
+name: Verify BIG BROTHER Desktop GitHub auto-update discovery and reuse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/UpdaterProbe/**'
+      - '.github/workflows/test-github-updater.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  github-update-probe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    name: Check real GitHub feed, download package and reuse saved update
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Confirm approved Desktop 0.2.7 prerelease is published
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'desktop-dev-v0.2.7'
+          for ($i = 0; $i -lt 25; $i++) {
+            gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft,isPrerelease,assets *> $null
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Verified $tag exists"
+              $global:LASTEXITCODE = 0
+              exit 0
+            }
+            Start-Sleep -Seconds 12
+          }
+          throw "Approved v0.2.7 GitHub prerelease not available"
+      - name: Test the same anonymous GithubSource and dev feed used by Desktop
+        shell: pwsh
+        run: |
+          dotnet run --project tests/UpdaterProbe/UpdaterProbe.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Desktop update discovery/download/regression test failed' }
