@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using Velopack;
+using Microsoft.Win32;
 
 namespace BBDesktop;
 
@@ -18,16 +19,43 @@ internal static class UpdateService
         public string FeedUrl { get; set; } = "";
     }
 
-    internal static async Task CheckForUpdatesAsync(Window owner, Action<string> status)
+    internal static async Task PromptLocalUpdateAsync(Window owner, Action<string> status)
+    {
+        // This development fallback works without a hosted update feed.
+        // A release folder contains releases.dev.json and a full .nupkg.
+        var picker = new OpenFileDialog
+        {
+            Title = "Select the downloaded BIG BROTHER Desktop release feed",
+            Filter = "BIG BROTHER update feed (releases.dev.json)|releases.dev.json",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (picker.ShowDialog(owner) != true) return;
+        var directory = Path.GetDirectoryName(picker.FileName);
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        if (!File.Exists(Path.Combine(directory, "releases.dev.json")) ||
+            Directory.GetFiles(directory, "BigBrother.Desktop-*-dev-full.nupkg").Length == 0)
+        {
+            MessageBox.Show(owner,
+                "Select a release folder containing releases.dev.json and the full Desktop .nupkg package.",
+                "BIG BROTHER Desktop", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        await CheckForUpdatesAsync(owner, status, directory);
+    }
+
+    internal static async Task CheckForUpdatesAsync(Window owner, Action<string> status,
+        string? localUpdateFolder = null)
     {
         try
         {
             var file = Path.Combine(AppContext.BaseDirectory, "update-source.json");
             var config = File.Exists(file)
                 ? JsonSerializer.Deserialize<Config>(File.ReadAllText(file)) : null;
-            var feed = config?.FeedUrl?.Trim() ?? "";
-            if (!Uri.TryCreate(feed, UriKind.Absolute, out var address)
-                || address.Scheme != Uri.UriSchemeHttps)
+            var feed = localUpdateFolder ?? config?.FeedUrl?.Trim() ?? "";
+            if (localUpdateFolder is null &&
+                (!Uri.TryCreate(feed, UriKind.Absolute, out var address) ||
+                address.Scheme != Uri.UriSchemeHttps))
             {
                 status("Update feed not configured");
                 MessageBox.Show(owner, "Desktop update checks are not enabled yet. We will configure the secure HTTPS update feed after verifying the installer and the accounting modules.",
@@ -35,7 +63,7 @@ internal static class UpdateService
                 return;
             }
 
-            status("Checking for Desktop updates…");
+            status(localUpdateFolder is null ? "Checking for Desktop updates…" : "Checking downloaded update package…");
             var manager = new UpdateManager(feed);
             var update = await manager.CheckForUpdatesAsync();
             if (update == null)
