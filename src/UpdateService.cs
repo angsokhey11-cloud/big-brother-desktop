@@ -36,7 +36,7 @@ internal static class UpdateService
             }
 
             status("Checking for Desktop updates…");
-            using var manager = new UpdateManager(feed);
+            var manager = new UpdateManager(feed);
             var update = await manager.CheckForUpdatesAsync();
             if (update == null)
             {
