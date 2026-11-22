@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.7
+APPROVED_VERSION=0.3.8
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -143,3 +143,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No Cloud/PWA, Local Brain, Supabase, bank, inventory, invoice, A/R, financial logic or migration change.
 - Full Windows CI **45014130995** passed: cleaned desktop-name/pack identity assertions, global Browser and shortcut UX regressions, standard WebView2 ghost-screen and mouse-safety tests, Sales Support navigation, warnings-as-errors Windows compile, 32 pinned accounting frontends and Windows Velopack installer artifact upload.
 - This version remains an internal consent-controlled dev-channel prerelease only; real-Windows acceptance for launcher placement, wheel scroll and drag/drop remains necessary.
+
+## Approved v0.3.8 — Transparent text-only Dashboard branding and Browser launcher restoration
+
+- The user's v0.3.7 screenshot showed the globe Browser launcher below BIG BROTHER, which looked awkward. The Dashboard's built-in .brand-home button had width:100% and a blue-tinted :hover background, making its hit area extend across the logo card instead of the displayed BIG BROTHER name/subtitle.
+- Add a narrowly scoped, desktop-only CSS override to the already installed native desktop workspace stylesheet: remove .brand painted backgrounds/hover, constrain .brand-home width to visible content with room reserved for the Browser globe, retain the existing onclick Dashboard navigation when the name/subtitle is clicked. Do not modify the Cloud/PWA branding, sidebar routes or accounting code.
+- Restore the unboxed white Browser globe and label to the top-right of the Dashboard logo header (origin x=182, y=25 relative to the main window), with a slightly narrower 66px native transparent clickable window to eliminate text overlap. Keep non-topmost HWND-hosted WebView2, off-app focus hiding and ghost-click prevention.
+- All v0.3.7 features remain: clean BIG BROTHER Desktop Windows display title without “(Development)”, persisted shortcut order, wheel scrolling, zero-height Shortcut collapse, full Telegram saved URLs and global multi-tab Browser.
+- Verified Windows development CI run **45015339851** passed the new logo hit-area regression, Browser focus/shortcuts/tabs regressions, Sales Support navigation, warnings-as-errors .NET build, pinned frontend bundling, and Velopack installer artifact upload.
+- Approve for internal consent-based GitHub development prerelease only. User-PC confirmation remains needed for native click boundaries and visual placement. Production/staff approval not granted; no Supabase, Cloud/PWA or Local Brain changes.
