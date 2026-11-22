@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.0
+APPROVED_VERSION=0.3.1
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -68,3 +68,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Passed Windows full CI run 44998929882: 32 pinned module packaging, static shell/capture regression guards, navigation regression, .NET 10 warnings-as-errors compilation, self-contained publish and Velopack packaging.
 - This is a **diagnostic development build**, not yet user-confirmed. Validate on the user's PC: clicks on Excel/Chrome/desktop icons before Invoice Generator, after minimize/restore, after opening/minimizing floating Telegram browser; ensure Telegram login persists.
 - No Cloud/PWA source, Supabase configuration/schema, accounting workflow, invoice, bank, stock or COGS changes. Production staff rollout remains unapproved.
+
+## Approved v0.3.1 — Browser Workspace live URL and named shortcuts
+
+- Internal development release for user acceptance testing only, following the verified v0.3.0 ghost-click fix. The standard HWND WebView2 architecture and native window focus isolation stay intact.
+- Keep the native address field synchronized with WebView2 navigation, redirects and SPA route changes using SourceChanged and NavigationStarting. The displayed URL remains complete, while persisted session start URLs and bookmark targets deliberately exclude sensitive query strings and fragments.
+- Save the current live website through a naming dialog; rename and explicitly remove saved shortcuts. Existing Bookmarks list and saved WebView2 user profiles remain backward-compatible, while shortcut labels persist separately under the same user data directory.
+- Add an on/off address bar control in the native blue browser title strip; retain the preference through application restart and upgrades without hiding the saved shortcuts.
+- Protect native shortcut dialogs from unexpected owner-window hiding without restoring an always-on-top or full-desktop browser overlay.
+- Full Windows development CI run **45000908131** passed: v0.3.1 browser regression, native window focus/ghost-click guards, Sales Support navigation regression, .NET 10 warnings-as-errors compilation, 32 pinned module bundle, Velopack packaging and Setup.exe artifact upload.
+- No Cloud/PWA, Local Brain, Supabase schema, bank, sales, inventory, A/R, invoice or other accounting rules changed. Released only to the approved user-controlled GitHub prerelease channel; not staff production software.
