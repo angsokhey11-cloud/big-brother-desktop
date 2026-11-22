@@ -94,6 +94,12 @@ jobs:
           node tests/sales_support_navigation_regression.js
           if ($LASTEXITCODE -ne 0) { throw "Your Customer return navigation regression failed" }
 
+      - name: Guard browser URL, named shortcuts, and toolbar collapse
+        shell: pwsh
+        run: |
+          python tests/test_browser_shortcuts_v031.py
+          if ($LASTEXITCODE -ne 0) { throw "Browser workspace regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
