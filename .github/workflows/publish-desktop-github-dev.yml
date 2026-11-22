@@ -1,0 +1,157 @@
+name: Publish approved BIG BROTHER Desktop GitHub dev update
+
+# Only the explicitly advanced release branch publishes new update packages.
+# Ordinary main branch commits still produce build-only CI artifacts.
+on:
+  push:
+    branches: [desktop-release]
+    paths:
+      - 'src/**'
+      - 'tools/**'
+      - 'config/**'
+      - '.github/workflows/publish-desktop-github-dev.yml'
+      - 'RELEASE-APPROVAL.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: big-brother-desktop-github-dev-release
+  cancel-in-progress: false
+
+jobs:
+  publish-dev:
+    name: Build, verify, and publish dev update to GitHub Releases
+    if: github.ref == 'refs/heads/desktop-release'
+    runs-on: windows-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout approved release source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify development release approval and version
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (-not (Test-Path 'RELEASE-APPROVAL.md')) {
+            throw 'Release approval document missing from this branch.'
+          }
+          [xml]$proj = Get-Content -Raw 'src/BBDesktop.csproj'
+          $version = [string]$proj.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Invalid Desktop package version: $version"
+          }
+          $tag = "desktop-dev-v$version"
+          $approved = (Get-Content 'RELEASE-APPROVAL.md' -Raw).Trim()
+          if (-not $approved.Contains("APPROVED_VERSION=$version")) {
+            throw "The release branch does not approve version $version."
+          }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release tag $tag is already published. Do not overwrite existing application update releases."
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Approved build: $tag"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Bundle all pinned accounting frontends
+        shell: pwsh
+        run: |
+          python tools/bundle_web.py
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
+
+      - name: Generate BIG BROTHER Windows icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Pillow installation failed' }
+          python tools/create_icon.py
+          if ($LASTEXITCODE -ne 0) { throw 'Windows icon generation failed' }
+
+      - name: Compile application with warnings as errors
+        shell: pwsh
+        run: |
+          dotnet build src/BBDesktop.csproj --configuration Release --no-incremental --warnaserror
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop compilation failed' }
+
+      - name: Publish Windows desktop app with local UI modules
+        shell: pwsh
+        run: |
+          dotnet publish src/BBDesktop.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:DebugType=None -p:DebugSymbols=false
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed' }
+          foreach ($file in @(
+            'publish/BIG-BROTHER-Desktop.exe',
+            'publish/Microsoft.Windows.SDK.NET.dll',
+            'publish/web/big-brother-dashboard/index.html',
+            'publish/web/big-brother-invoice-generator/index.html',
+            'publish/web/big-brother-ar/index.html'
+          )) {
+            if (-not (Test-Path $file)) { throw "Release asset missing: $file" }
+          }
+          $modules = (Get-ChildItem publish/web -Directory).Count
+          if ($modules -ne 32) { throw "Expected 32 accounting modules; got $modules" }
+
+      - name: Install official Velopack CLI
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk --version 1.2.161
+          if ($LASTEXITCODE -ne 0) { throw 'Velopack CLI installation failed' }
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          vpk --version
+
+      - name: Retrieve previous published dev release for possible small delta update
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          New-Item releases -ItemType Directory -Force | Out-Null
+          $env:VPK_TOKEN = $env:GH_TOKEN
+          vpk download github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --channel dev --pre --outputDir releases
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host 'No previous development release available; creating the first full update package.'
+            Get-ChildItem releases -Force | Remove-Item -Recurse -Force
+          } else {
+            Write-Host 'Previous release downloaded; Velopack can generate delta packages.'
+          }
+          $global:LASTEXITCODE = 0
+
+      - name: Produce versioned Windows Setup.exe and updater packages
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack --packId BigBrother.Desktop --packVersion $env:VERSION --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          if ($LASTEXITCODE -ne 0) { throw 'Velopack packaging failed' }
+          if (-not (Test-Path 'releases/releases.dev.json')) { throw 'Velopack dev feed missing' }
+          if (-not (Get-ChildItem releases -Filter '*-full.nupkg')) { throw 'Velopack full package missing' }
+          if (-not (Get-ChildItem releases -Filter '*-Setup.exe')) { throw 'Desktop installer missing' }
+          Get-ChildItem releases | Select-Object Name,Length
+
+      - name: Publish GitHub DEVELOPMENT prerelease and update feed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $env:VPK_TOKEN = $env:GH_TOKEN
+          vpk upload github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --channel dev --outputDir releases --token $env:GH_TOKEN --publish --pre --tag $env:TAG --targetCommitish $env:GITHUB_SHA --releaseName "BIG BROTHER Desktop $env:VERSION (Development)"
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Development release upload failed' }
+          gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json url,isDraft,isPrerelease,assets
+          if ($LASTEXITCODE -ne 0) { throw 'Published GitHub release not visible' }
