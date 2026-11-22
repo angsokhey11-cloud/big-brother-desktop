@@ -73,7 +73,7 @@ internal static class UpdateService
 
             status("New BIG BROTHER Desktop update available");
             var message = "A newer BIG BROTHER Desktop DEVELOPMENT update is available on GitHub.\n\n" +
-                          "Download the signed-by-feed/checksum-verified update package now? " +
+                          "Download the checksum-verified Desktop update package now? " +
                           "You can continue working while it downloads. " +
                           "The app will ask separately before installing and restarting.";
             if (MessageBox.Show(owner, message,
