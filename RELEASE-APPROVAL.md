@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.5
+APPROVED_VERSION=0.2.6
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -23,3 +23,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Main accounting frontend revisions remain pinned; no DB writes, SQL migrations or financial logic changes.
 - The small setup EXE is unsigned development software and needs Windows .NET Framework and internet access on first install.
 - Pre-release source/installer CI and real custom-folder Windows setup tests have passed.
+
+## Approved v0.2.6 change — User-selected Desktop branding
+
+- Replace the native Windows app icon with the user's selected BB financial-ledger artwork (navy, blue and teal).
+- Use a simplified variant for 16, 24, and 32px Windows taskbar sizes; use detailed original art for larger icon sizes.
+- Keep native WPF titlebar/taskbar, shortcuts, standard Velopack Setup.exe and lightweight Online Setup.exe consistent.
+- Verified Windows online-installer build, icon-asset SHA256 integrity check, multi-resolution ICO generation, complete 32-module Desktop build and package succeeded on main.
+- No Supabase schema or accounting-data changes and no changes to Cloud/PWA function repositories.
+- Development prerelease only; staff production use remains unapproved until full acceptance testing.

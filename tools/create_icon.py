@@ -1,103 +1,75 @@
 #!/usr/bin/env python3
-"""Create a multi-resolution Windows ICO matching BIG BROTHER's existing PWA logo.
+"""Build approved BIG BROTHER Windows icon at genuine Windows icon resolutions.
 
-Build-time only. Uses bundled, pinned Dashboard SVG as the approved brand
-reference, with Pillow so Windows CI does not need a native SVG rasterizer.
+The two-panel source is the user-selected BB accounting mark (left) and its
+simplified small-taskbar variant (right). This is build-time only.
 """
 from __future__ import annotations
 
+from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
-import math
-from PIL import Image, ImageDraw, ImageFont
+import struct
+from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
-SVG = ROOT / "build" / "web" / "big-brother-dashboard" / "desktop-pwa-icon.svg"
+SOURCE = ROOT / "assets" / "desktop-icon-art.webp"
 TARGET = ROOT / "build" / "icon" / "big-brother.ico"
 PREVIEW = ROOT / "build" / "icon" / "big-brother-preview.png"
-
-
-def load_font(size: int) -> ImageFont.FreeTypeFont:
-    choices = [
-        Path(r"C:\Windows\Fonts\ariblk.ttf"),
-        Path(r"C:\Windows\Fonts\arialbd.ttf"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-    ]
-    for path in choices:
-        if path.is_file():
-            return ImageFont.truetype(str(path), size)
-    raise RuntimeError("Cannot find a bold font to render BIG BROTHER icon")
+SMALL_PREVIEW = ROOT / "build" / "icon" / "big-brother-small-preview.png"
+EXPECTED_HASH = "bd0841b7323ba759f92412458c04e3039dbabb7f142f667128282f80498d79b6"
+SIZES = (16, 24, 32, 48, 64, 128, 256)
 
 
 def create() -> None:
-    if not SVG.is_file():
-        raise RuntimeError("Approved Dashboard PWA logo not included in the frontend bundle")
-    brand = SVG.read_text(encoding="utf-8")
-    if 'viewBox="0 0 512 512"' not in brand or 'fill="#ffffff">BB</text>' not in brand:
-        raise RuntimeError("Unexpected Dashboard logo design: review before changing Desktop branding")
-
-    s = 3
-    dim = 512 * s
-    image = Image.new("RGBA", (dim, dim), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    top = (23, 63, 119)
-    bottom = (11, 44, 85)
-
-    # Match the existing Dashboard icon: navy diagonal background,
-    # cyan inner outline, big white BB lettering and an upward chart.
-    for y in range(dim):
-        for_x = y / max(1, dim - 1)
-        # Layered small stripes are blended into a rounded mask below.
-        color = tuple(round(top[i] + (bottom[i] - top[i]) * for_x) for i in range(3))
-        draw.line((0, y, dim, y), fill=(*color, 255))
-    rounded = Image.new("L", (dim, dim), 0)
-    mask_draw = ImageDraw.Draw(rounded)
-    mask_draw.rounded_rectangle((0, 0, dim - 1, dim - 1), radius=108 * s, fill=255)
-    image.putalpha(rounded)
-    draw = ImageDraw.Draw(image)
-
-    draw.rounded_rectangle(
-        (36 * s, 36 * s, 476 * s, 476 * s),
-        radius=82 * s,
-        outline=(95, 183, 255, 145),
-        width=8 * s,
-    )
-
-    font = load_font(228 * s)
-    # The primary PWA mark uses very tight, bold white BB initials.
-    left = 74 * s
-    baseline = 145 * s
-    draw.text((left, baseline), "B", font=font, fill="white",
-              stroke_width=0)
-    draw.text((left + 134 * s, baseline), "B", font=font, fill="white",
-              stroke_width=0)
-
-    # The original PWA icon's cyan accounting growth graphic.
-    bars = [
-        (304, 342, 328, 396, (126, 211, 255, 255)),
-        (339, 316, 363, 396, (95, 198, 255, 255)),
-        (374, 286, 398, 396, (50, 178, 255, 255)),
-    ]
-    for x1, y1, x2, y2, color in bars:
-        draw.rounded_rectangle((x1 * s, y1 * s, x2 * s, y2 * s),
-                               radius=5 * s, fill=color)
-    pts = [(297, 397), (326, 384), (350, 365), (374, 344), (408, 313)]
-    draw.line([(x * s, y * s) for x, y in pts], fill=(159, 228, 255, 255),
-              width=11 * s, joint="curve")
-    draw.line([(397 * s, 314 * s), (418 * s, 311 * s), (414 * s, 334 * s)],
-              fill="white", width=9 * s, joint="curve")
+    if not SOURCE.is_file():
+        raise FileNotFoundError("Approved BIG BROTHER Desktop icon missing from assets/")
+    actual = sha256(SOURCE.read_bytes()).hexdigest()
+    if actual != EXPECTED_HASH:
+        raise ValueError("Unapproved Desktop icon artwork changed: re-review before release")
+    with Image.open(SOURCE) as sheet:
+        if sheet.size != (384, 192):
+            raise ValueError("Unexpected master/small artwork dimensions")
+        full = sheet.convert("RGBA").crop((0, 0, 192, 192))
+        simplified = sheet.convert("RGBA").crop((192, 0, 384, 192))
 
     TARGET.parent.mkdir(parents=True, exist_ok=True)
-    final = image.resize((512, 512), Image.Resampling.LANCZOS)
-    final.save(PREVIEW)
-    # Windows Explorer, Start Menu, installer, and taskbar use different sizes.
-    final.save(TARGET, format="ICO", sizes=[
-        (16, 16), (24, 24), (32, 32), (48, 48),
-        (64, 64), (128, 128), (256, 256),
-    ])
-    if TARGET.stat().st_size < 1000:
-        raise RuntimeError("Windows icon generation produced a suspiciously small file")
-    print(f"BIG BROTHER branded multi-size icon: {TARGET} ({TARGET.stat().st_size:,} bytes)")
-    print(f"Brand preview: {PREVIEW}")
+    full.resize((512, 512), Image.Resampling.LANCZOS).save(PREVIEW)
+    simplified.resize((128, 128), Image.Resampling.LANCZOS).save(SMALL_PREVIEW)
+    chunks = []
+    for sz in SIZES:
+        frame = (simplified if sz <= 32 else full).resize(
+            (sz, sz), Image.Resampling.LANCZOS)
+        if sz <= 32:
+            frame = frame.filter(ImageFilter.UnsharpMask(
+                radius=0.65, percent=120, threshold=3))
+        buffer = BytesIO()
+        frame.save(buffer, "PNG", optimize=True)
+        data = buffer.getvalue()
+        if len(data) < 100 or not data.startswith(b"\x89PNG"):
+            raise ValueError(f"Invalid icon frame: {sz}x{sz}")
+        chunks.append((sz, data))
+
+    # Explicit ICO directory allows different artwork at small and large
+    # resolutions, unlike PIL's ordinary single-source .ico export.
+    directory = bytearray(struct.pack("<HHH", 0, 1, len(chunks)))
+    offset = 6 + len(chunks) * 16
+    payload = bytearray()
+    for sz, data in chunks:
+        byte_size = 0 if sz == 256 else sz
+        directory.extend(struct.pack("<BBBBHHII",
+                                     byte_size, byte_size,
+                                     0, 0, 1, 32, len(data), offset))
+        offset += len(data)
+        payload.extend(data)
+    TARGET.write_bytes(bytes(directory) + bytes(payload))
+
+    with Image.open(TARGET) as check:
+        actual_sizes = set(check.info["sizes"])
+    if actual_sizes != {(x, x) for x in SIZES}:
+        raise RuntimeError(f"ICO sizes differ from approved frame sizes: {actual_sizes}")
+    print(f"BIG BROTHER Windows icon: {TARGET} ({TARGET.stat().st_size:,} bytes)")
+    print("16–32px simplified; 48–256px detailed BB accounting mark.")
 
 
 if __name__ == "__main__":

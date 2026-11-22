@@ -21,16 +21,15 @@ jobs:
       - name: Checkout Windows bootstrapper source
         uses: actions/checkout@v4
 
-      - name: Prepare approved BIG BROTHER icon source
+      - name: Verify approved BIG BROTHER Desktop icon artwork
         shell: pwsh
         run: |
-          $lock = Get-Content 'config/modules.lock.json' -Raw | ConvertFrom-Json
-          $dashboard = $lock.modules | Where-Object { $_.name -eq 'big-brother-dashboard' }
-          if (-not $dashboard.sha) { throw 'Dashboard pin missing' }
-          New-Item -ItemType Directory -Force 'build/web/big-brother-dashboard' | Out-Null
-          $uri = "https://raw.githubusercontent.com/$($lock.owner)/big-brother-dashboard/$($dashboard.sha)/desktop-pwa-icon.svg"
-          Invoke-WebRequest -Uri $uri -OutFile 'build/web/big-brother-dashboard/desktop-pwa-icon.svg'
-          if (-not (Test-Path 'build/web/big-brother-dashboard/desktop-pwa-icon.svg')) { throw 'Brand asset missing' }
+          $source = 'assets/desktop-icon-art.webp'
+          if (-not (Test-Path $source)) { throw 'User-approved Desktop icon asset missing' }
+          $expected = 'BD0841B7323BA759F92412458C04E3039DBABB7F142F667128282F80498D79B6'
+          $actual = (Get-FileHash $source -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'Unexpected Desktop icon artwork SHA256' }
+          Write-Host 'Verified approved BB + ledger icon asset.'
 
       - uses: actions/setup-python@v5
         with:
