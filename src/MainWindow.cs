@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Text.Json;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,7 +32,6 @@ internal sealed class MainWindow : Window
     private readonly Canvas _overlay = new();
     private readonly Border _browserPanel = new();
     private readonly Button _bubble = new();
-    private readonly TextBox _workspaceAddress = new();
     private readonly TextBox _browserAddress = new();
     private readonly ComboBox _savedWebsites = new();
     private readonly TextBlock _notice = new();
@@ -39,6 +41,21 @@ internal sealed class MainWindow : Window
     private bool _browserReady;
     private bool _browserStarting;
     private bool _panelOpen;
+    private bool _invoiceScopeActive;
+
+    // The embedded browser belongs to the Invoice Generator only. The browser
+    // stays alive if the user switches accounting functions.
+    private const int UpdateSystemMenuCommand = 0x1E00;
+    private const int WmSysCommand = 0x0112;
+    private const uint MfSeparator = 0x0800;
+    private const uint MfString = 0x0000;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AppendMenu(IntPtr menu, uint flags, nuint identifier, string? label);
     private bool _dragging;
     private Point _dragFrom;
     private Point _panelFrom;
@@ -59,6 +76,73 @@ internal sealed class MainWindow : Window
         })();
         """;
 
+    // Runs only in the top-level Dashboard document. The dashboard already
+    // identifies the active iframe with moduleFrame.dataset.module = "invoice".
+    // The small observer reports iframe bounds but never touches accounting data.
+    private const string InvoiceScopeScript = """
+        (function () {
+          if (window !== window.top || window.__bbDesktopInvoiceScopeV2) return;
+          window.__bbDesktopInvoiceScopeV2 = true;
+          let last = "", currentFrame = null, currentWorkspace = null;
+          let observer = null;
+
+          function report() {
+            const frame = document.getElementById("moduleFrame");
+            const workspace = document.getElementById("moduleWorkspace");
+            const src = String(frame?.getAttribute("src") || "");
+            const active = !!(frame && workspace && !workspace.hidden &&
+              frame.dataset.module === "invoice" &&
+              src.includes("/big-brother-invoice-generator/") &&
+              !src.startsWith("about:"));
+            const rect = active ? frame.getBoundingClientRect() : null;
+            const visible = !!(rect && rect.width >= 180 && rect.height >= 180 &&
+              rect.right > 0 && rect.bottom > 0 &&
+              rect.left < innerWidth && rect.top < innerHeight);
+            const payload = {
+              type: "bbDesktopInvoiceScopeV2", visible,
+              x: visible ? rect.left : 0,
+              y: visible ? rect.top : 0,
+              width: visible ? rect.width : 0,
+              height: visible ? rect.height : 0,
+              viewportWidth: innerWidth,
+              viewportHeight: innerHeight
+            };
+            const value = JSON.stringify(payload);
+            if (value === last) return;
+            last = value;
+            try { window.chrome?.webview?.postMessage(value); } catch (_) {}
+          }
+
+          function bind() {
+            const frame = document.getElementById("moduleFrame");
+            const workspace = document.getElementById("moduleWorkspace");
+            if (frame !== currentFrame || workspace !== currentWorkspace) {
+              observer?.disconnect();
+              currentFrame = frame;
+              currentWorkspace = workspace;
+              observer = new MutationObserver(report);
+              if (frame) observer.observe(frame, {
+                attributes: true,
+                attributeFilter: ["src", "data-module", "class", "style"]
+              });
+              if (workspace) observer.observe(workspace, {
+                attributes: true,
+                attributeFilter: ["hidden", "class", "style"]
+              });
+            }
+            report();
+          }
+
+          window.addEventListener("resize", bind, {passive:true});
+          window.addEventListener("scroll", report, true);
+          document.addEventListener("DOMContentLoaded", bind);
+          // Recovery for the dashboard loader's document.write and responsive
+          // layout changes; this never polls APIs or the accounting database.
+          setInterval(bind, 1200);
+          bind();
+        })();
+        """;
+
     public MainWindow()
     {
         Title = "BIG BROTHER Desktop • Development";
@@ -69,6 +153,7 @@ internal sealed class MainWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Paint("#edf2f9");
         FontFamily = new FontFamily("Segoe UI");
+        SourceInitialized += InstallNativeUpdateMenu;
 
         BuildWindow();
         Loaded += async (_, _) => await InitializeWorkspaceAsync();
@@ -123,84 +208,133 @@ internal sealed class MainWindow : Window
 
     private void BuildWindow()
     {
-        var root = new Grid();
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(95) });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Content = root;
-
-        var header = new Grid { Background = Paint("#174888") };
-        header.RowDefinitions.Add(new RowDefinition { Height = new GridLength(39) });
-        header.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
-        Grid.SetRow(header, 0);
-        root.Children.Add(header);
-
-        var titleRow = new DockPanel { Margin = new Thickness(16, 7, 16, 0) };
-        titleRow.Children.Add(Text("BIG BROTHER  /  DESKTOP ACCOUNTING", 15, "#ffffff", FontWeights.Bold));
-        var testFlag = Text("DEVELOPMENT  •  Do not save live transactions before verification", 11, "#ffdfac", FontWeights.SemiBold);
-        DockPanel.SetDock(testFlag, Dock.Right);
-        titleRow.Children.Insert(0, testFlag);
-        Grid.SetRow(titleRow, 0);
-        header.Children.Add(titleRow);
-
-        var navRow = new Grid { Margin = new Thickness(16, 2, 16, 8) };
-        navRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        navRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        navRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        navRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        navRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
-        Grid.SetRow(navRow, 1);
-        header.Children.Add(navRow);
-
-        var invoiceLabel = Text("Installed Dashboard", 12, "#e5eefb", FontWeights.SemiBold);
-        invoiceLabel.Margin = new Thickness(0, 0, 10, 0);
-        Grid.SetColumn(invoiceLabel, 0);
-        navRow.Children.Add(invoiceLabel);
-
-        var originalUrl = DefaultWorkspaceUrl;
-        _workspaceAddress.Text = originalUrl;
-        _workspaceAddress.IsReadOnly = true;
-        _workspaceAddress.Margin = new Thickness(0, 0, 8, 0);
-        Grid.SetColumn(_workspaceAddress, 1);
-        navRow.Children.Add(_workspaceAddress);
-        _workspaceAddress.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter) { NavigateWorkspace(); e.Handled = true; }
-        };
-
-        var load = MakeButton("Home", "#2672d1", "#ffffff", 12, 75);
-        load.Click += (_, _) => NavigateWorkspace();
-        Grid.SetColumn(load, 2);
-        navRow.Children.Add(load);
-
-        var cloud = MakeButton("Check Updates", "#e8f1fc", "#174888", 12, 135);
-        cloud.Click += async (_, _) => await CheckUpdatesAsync();
-        Grid.SetColumn(cloud, 3);
-        navRow.Children.Add(cloud);
-
-        _workspaceStatus.Text = "Opening installed BIG BROTHER Dashboard…";
-        _workspaceStatus.FontSize = 11;
-        _workspaceStatus.Foreground = Paint("#dfebfb");
-        _workspaceStatus.VerticalAlignment = VerticalAlignment.Center;
-        _workspaceStatus.TextTrimming = TextTrimming.CharacterEllipsis;
-        Grid.SetColumn(_workspaceStatus, 4);
-        navRow.Children.Add(_workspaceStatus);
-
-        Grid.SetRow(_body, 1);
+        // No extra toolbar: show the existing Dashboard edge-to-edge beneath
+        // the normal Windows title bar.
+        Content = _body;
         _body.ClipToBounds = true;
-        root.Children.Add(_body);
 
         _workspaceView.DefaultBackgroundColor = System.Drawing.Color.White;
         _body.Children.Add(_workspaceView);
 
-        // A canvas without a background lets clicks pass through empty space to
-        // the Invoice WebView. Only the native bubble/panel captures input.
+        // This overlay is physically bounded to the active Invoice Generator
+        // iframe, not the global Dashboard or its sidebar.
         _overlay.Background = null;
+        _overlay.ClipToBounds = true;
+        _overlay.HorizontalAlignment = HorizontalAlignment.Left;
+        _overlay.VerticalAlignment = VerticalAlignment.Top;
+        _overlay.Width = 1;
+        _overlay.Height = 1;
+        _overlay.Visibility = Visibility.Collapsed;
         _body.Children.Add(_overlay);
         _overlay.SizeChanged += (_, _) => FitOverlay();
 
         BuildBrowserPanel();
         BuildBubble();
+    }
+
+    // Keep Check Updates accessible from the standard Windows title-bar
+    // system menu (Alt+Space), without an extra toolbar across the Dashboard.
+    private void InstallNativeUpdateMenu(object? sender, EventArgs e)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var menu = GetSystemMenu(hwnd, false);
+        if (menu != IntPtr.Zero)
+        {
+            AppendMenu(menu, MfSeparator, 0, null);
+            AppendMenu(menu, MfString, (nuint)UpdateSystemMenuCommand,
+                "Check BIG BROTHER Desktop Updates");
+        }
+        if (HwndSource.FromHwnd(hwnd) is { } source)
+            source.AddHook(HandleSystemMenu);
+    }
+
+    private IntPtr HandleSystemMenu(IntPtr hwnd, int msg, IntPtr wParam,
+        IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmSysCommand &&
+            ((wParam.ToInt64() & 0xFFF0) == UpdateSystemMenuCommand))
+        {
+            handled = true;
+            _ = CheckUpdatesAsync();
+        }
+        return IntPtr.Zero;
+    }
+
+    private void ApplyInvoiceScope(double left, double top, double width,
+        double height, double viewportWidth, double viewportHeight, bool active)
+    {
+        var valid = active && width >= 180 && height >= 180 &&
+                    viewportWidth > 0 && viewportHeight > 0 &&
+                    _body.ActualWidth > 0 && _body.ActualHeight > 0;
+        if (!valid)
+        {
+            if (_invoiceScopeActive && _panelOpen)
+            {
+                RememberPanel();
+                _panelOpen = false;
+                _dragging = false;
+            }
+            _invoiceScopeActive = false;
+            _overlay.Visibility = Visibility.Collapsed;
+            _browserPanel.Visibility = Visibility.Collapsed;
+            _bubble.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        // Convert WebView viewport CSS pixels to WPF device-independent pixels.
+        var scaleX = _body.ActualWidth / viewportWidth;
+        var scaleY = _body.ActualHeight / viewportHeight;
+        var x = Bound(left * scaleX, 0, _body.ActualWidth);
+        var y = Bound(top * scaleY, 0, _body.ActualHeight);
+        var w = Math.Min(width * scaleX, _body.ActualWidth - x);
+        var h = Math.Min(height * scaleY, _body.ActualHeight - y);
+        if (w < 180 || h < 180)
+        {
+            ApplyInvoiceScope(0, 0, 0, 0, 0, 0, false);
+            return;
+        }
+
+        _invoiceScopeActive = true;
+        _overlay.Margin = new Thickness(x, y, 0, 0);
+        _overlay.Width = w;
+        _overlay.Height = h;
+        _overlay.Visibility = Visibility.Visible;
+        _browserPanel.Visibility = _panelOpen ? Visibility.Visible : Visibility.Collapsed;
+        _bubble.Visibility = _panelOpen ? Visibility.Collapsed : Visibility.Visible;
         FitOverlay();
+    }
+
+    private void OnWorkspaceMessage(object? sender,
+        CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        try
+        {
+            if (!Uri.TryCreate(args.Source, UriKind.Absolute, out var source) ||
+                !source.Host.Equals("app.bigbrother.test", StringComparison.OrdinalIgnoreCase) ||
+                !source.AbsolutePath.StartsWith("/big-brother-dashboard/",
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+            var message = args.TryGetWebMessageAsString();
+            using var json = JsonDocument.Parse(message);
+            var value = json.RootElement;
+            if (!value.TryGetProperty("type", out var type) ||
+                type.GetString() != "bbDesktopInvoiceScopeV2")
+                return;
+
+            var active = value.GetProperty("visible").GetBoolean();
+            ApplyInvoiceScope(
+                value.GetProperty("x").GetDouble(),
+                value.GetProperty("y").GetDouble(),
+                value.GetProperty("width").GetDouble(),
+                value.GetProperty("height").GetDouble(),
+                value.GetProperty("viewportWidth").GetDouble(),
+                value.GetProperty("viewportHeight").GetDouble(),
+                active);
+        }
+        catch
+        {
+            // A malformed page message must never show the native browser.
+        }
     }
 
     private void BuildBubble()
@@ -217,7 +351,7 @@ internal sealed class MainWindow : Window
         _bubble.Cursor = Cursors.Hand;
         _bubble.ToolTip = "Open the native floating browser";
         _bubble.Click += async (_, _) => await OpenBrowserPanelAsync();
-        _bubble.Visibility = Visibility.Visible;
+        _bubble.Visibility = Visibility.Collapsed;
 
         // Native bubble is deliberately fixed at top right, eliminating the
         // stale pointer-capture behaviour from the old iframe widget.
@@ -514,12 +648,21 @@ internal sealed class MainWindow : Window
             };
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.AreHostObjectsAllowed = false;
+            web.Settings.IsWebMessageEnabled = true;
             web.Settings.IsStatusBarEnabled = false;
+            web.WebMessageReceived += OnWorkspaceMessage;
+            web.NavigationStarting += (_, _) =>
+                ApplyInvoiceScope(0, 0, 0, 0, 0, 0, false);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(HideWebInvoiceBubbleScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(InvoiceScopeScript);
             web.NavigationCompleted += async (_, e) =>
             {
                 _workspaceStatus.Text = e.IsSuccess ? "Installed Dashboard / function loaded" : "Local accounting page failed to load";
-                try { await web.ExecuteScriptAsync(HideWebInvoiceBubbleScript); }
+                try
+                {
+                    await web.ExecuteScriptAsync(HideWebInvoiceBubbleScript);
+                    await web.ExecuteScriptAsync(InvoiceScopeScript);
+                }
                 catch { /* This may occur during navigation. */ }
             };
             NavigateWorkspace();
@@ -535,7 +678,6 @@ internal sealed class MainWindow : Window
 
     private void NavigateWorkspace()
     {
-        _workspaceAddress.Text = DefaultWorkspaceUrl;
         if (_workspaceView.CoreWebView2 == null) return;
         _workspaceView.CoreWebView2.Navigate(DefaultWorkspaceUrl);
         _workspaceStatus.Text = "Loading installed Dashboard…";
@@ -548,6 +690,7 @@ internal sealed class MainWindow : Window
 
     private async Task OpenBrowserPanelAsync()
     {
+        if (!_invoiceScopeActive) return;
         _panelOpen = true;
         _browserPanel.Visibility = Visibility.Visible;
         _bubble.Visibility = Visibility.Collapsed;
@@ -630,7 +773,7 @@ internal sealed class MainWindow : Window
         _panelOpen = false;
         _dragging = false;
         _browserPanel.Visibility = Visibility.Collapsed;
-        _bubble.Visibility = Visibility.Visible;
+        _bubble.Visibility = _invoiceScopeActive ? Visibility.Visible : Visibility.Collapsed;
         // Keep the same WebView2 instance alive: no Dispose, no Navigate,
         // no profile wipe, no page reload, no invoice state changes.
     }
