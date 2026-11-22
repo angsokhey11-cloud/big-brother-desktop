@@ -36,3 +36,11 @@ Not a stable production release; full Cloud authentication and accounting workfl
 - A **Desktop-only build-time fix** applies to the exact pinned Dashboard adapters, preserving original sources and existing permissions.
 - Reproduction/regression harness `tests/sales_support_navigation_regression.js` runs in both development and release Windows builds.
 - No change to Cloud/PWA files, staff permissions, customer records, backend, or accounting business logic.
+
+## Desktop v0.2.9 — Prevent mouse capture escaping to other Windows apps
+
+- Fixed a native floating-browser drag/resize mouse-capture cleanup bug that could interfere with mouse input or app switching.
+- Release capture explicitly when leaving Invoice Generator, hiding the browser, losing focus, minimizing the app or closing it.
+- Release captured mouse even if an old drag flag has already been cleared, handle mouse-up outside the captured element, and only mark drag active when capture succeeds.
+- Added Windows CI capture-cleanup regression guard. Intermittent PC input behavior still requires a real-device acceptance test.
+- No accounting functions, Cloud/PWA files, customer data, or Supabase migrations changed.
