@@ -88,7 +88,19 @@ internal sealed class MainWindow : Window
             if(!document.documentElement || document.getElementById('bbNativeShellHideBrowser')) return;
             var css=document.createElement('style');
             css.id='bbNativeShellHideBrowser';
-            css.textContent='#bbInvoiceBrowserBubble,#bbInvoiceBrowserPanel{display:none!important}';
+            // Desktop-only brand override: restrict Dashboard button's hit
+            // area to its visible text. Do not paint a background over the
+            // nearby native Browser button.
+            css.textContent =
+              '#bbInvoiceBrowserBubble,#bbInvoiceBrowserPanel{display:none!important}' +
+              '.brand{background:transparent!important;box-shadow:none!important}' +
+              '.brand>.brand-home{display:inline-block!important;' +
+              'width:max-content!important;max-width:calc(100% - 46px)!important;' +
+              'padding:4px 0!important;margin:0!important;' +
+              'border:0!important;background:transparent!important;' +
+              'box-shadow:none!important}' +
+              '.brand>.brand-home:hover,.brand>.brand-home:focus{' +
+              'background:transparent!important;box-shadow:none!important}';
             (document.head || document.documentElement).appendChild(css);
           }
           hideOldBubble();
