@@ -296,7 +296,11 @@ internal sealed class MainWindow : Window
         _overlay.Height = 1;
         _overlay.Visibility = Visibility.Collapsed;
         _body.Children.Add(_overlay);
-        _overlay.SizeChanged += (_, _) => FitOverlay();
+        _overlay.SizeChanged += (_, _) =>
+        {
+            FitOverlay();
+            RefreshNativeBrowserWindows();
+        };
 
         BuildBrowserPanel();
         BuildBubble();
@@ -399,6 +403,8 @@ internal sealed class MainWindow : Window
     {
         if (_bubbleWindow is null || _browserWindow is null) return;
         if (!_invoiceScopeActive || WindowState == WindowState.Minimized ||
+            !_overlay.IsVisible || _overlay.ActualWidth < 180 ||
+            _overlay.ActualHeight < 180 ||
             (!IsActive && _browserWindow.IsActive == false &&
              _bubbleWindow.IsActive == false))
         {
