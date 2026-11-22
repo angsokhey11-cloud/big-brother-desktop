@@ -11,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 
@@ -153,6 +154,8 @@ internal sealed class MainWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Paint("#edf2f9");
         FontFamily = new FontFamily("Segoe UI");
+        // Explicit WPF taskbar/title-bar icon; EXE/installer have the same brand.
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/big-brother.ico", UriKind.Absolute));
         SourceInitialized += InstallNativeUpdateMenu;
 
         BuildWindow();

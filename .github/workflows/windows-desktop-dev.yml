@@ -39,6 +39,14 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw "Frontend bundling failed" }
 
+      - name: Generate branded Windows application icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw "Icon renderer dependency install failed" }
+          python tools/create_icon.py
+          if ($LASTEXITCODE -ne 0) { throw "BIG BROTHER icon generation failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
@@ -63,6 +71,7 @@ jobs:
         run: |
           $required = @(
             'publish/BIG-BROTHER-Desktop.exe',
+            'build/icon/big-brother.ico',
             'publish/Microsoft.Windows.SDK.NET.dll',
             'publish/Microsoft.Web.WebView2.Wpf.dll',
             'publish/web/big-brother-dashboard/index.html',
@@ -93,7 +102,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.2.1 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.2.2 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }
