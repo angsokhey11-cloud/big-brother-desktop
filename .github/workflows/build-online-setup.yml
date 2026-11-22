@@ -59,6 +59,24 @@ jobs:
           [void][Reflection.AssemblyName]::GetAssemblyName($file.FullName)
           Write-Host "Lightweight branded online Setup.exe built successfully ($($file.Length) bytes)."
 
+      - name: Verify Velopack supports user-selected installation drive
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force 'installer-smoke' | Out-Null
+          gh release download desktop-dev-v0.2.4 --repo $env:GITHUB_REPOSITORY --pattern 'BigBrother.Desktop-dev-Setup.exe' --dir installer-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch approved previous setup for path check' }
+          $setup = (Resolve-Path 'installer-smoke/BigBrother.Desktop-dev-Setup.exe').Path
+          $custom = Join-Path $env:RUNNER_TEMP 'BIG-BROTHER-Custom-Drive-Install'
+          $proc = Start-Process -FilePath $setup -ArgumentList @('--silent','--installto', ('"' + $custom + '"')) -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Velopack custom install failed: $($proc.ExitCode)" }
+          $meta = Join-Path $custom 'current/sq.version'
+          if (-not (Test-Path $meta)) { throw "Selected path was not installed: $meta" }
+          [xml]$xml = Get-Content $meta -Raw
+          if ([string]$xml.package.metadata.id -ne 'BigBrother.Desktop') { throw 'Incorrect installed app ID' }
+          Write-Host "Verified BigBrother.Desktop can be installed to a user-selected folder: $custom"
+
       - name: Upload standalone ONE-FILE development online installer
         uses: actions/upload-artifact@v4
         with:
