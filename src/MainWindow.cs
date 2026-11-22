@@ -36,11 +36,13 @@ internal sealed class MainWindow : Window
     private readonly Button _bubble = new();
     private readonly TextBox _browserAddress = new();
     private readonly ComboBox _savedWebsites = new();
+    private bool _refreshingBookmarks;
     private readonly TextBlock _notice = new();
     private readonly TextBlock _workspaceStatus = new();
     private readonly Grid _body = new();
     private Window? _bubbleWindow;
     private Window? _browserWindow;
+    private Window? _browserDialog;
 
     private bool _browserReady;
     private bool _browserStarting;
@@ -361,7 +363,7 @@ internal sealed class MainWindow : Window
     private void HideNativeWindowsIfAnotherAppActive()
     {
         if (IsActive || _browserWindow?.IsActive == true ||
-            _bubbleWindow?.IsActive == true) return;
+            _bubbleWindow?.IsActive == true || _browserDialog?.IsActive == true) return;
         // Native windows are never topmost. Hide both when another program
         // becomes active; do not leave a ghost layer over other applications.
         HideNativeBrowserWindows();
@@ -406,7 +408,7 @@ internal sealed class MainWindow : Window
             !_overlay.IsVisible || _overlay.ActualWidth < 180 ||
             _overlay.ActualHeight < 180 ||
             (!IsActive && _browserWindow.IsActive == false &&
-             _bubbleWindow.IsActive == false))
+             _bubbleWindow.IsActive == false && _browserDialog?.IsActive != true))
         {
             HideNativeBrowserWindows();
             return;
@@ -579,7 +581,8 @@ internal sealed class MainWindow : Window
 
         var panelGrid = new Grid();
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
-        panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(43) });
+        var browserAddressGridRow = new RowDefinition { Height = new GridLength(43) };
+        panelGrid.RowDefinitions.Add(browserAddressGridRow);
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
@@ -595,6 +598,12 @@ internal sealed class MainWindow : Window
         minimize.Click += (_, _) => MinimizeBrowser();
         DockPanel.SetDock(minimize, Dock.Right);
         titleStrip.Children.Add(minimize);
+
+        var toggleAddress = MakeButton("URL ▴", "#24589a", "#ffffff", 11, 67);
+        toggleAddress.Margin = new Thickness(0, 4, 3, 4);
+        toggleAddress.ToolTip = "Show or hide the browser address bar";
+        DockPanel.SetDock(toggleAddress, Dock.Right);
+        titleStrip.Children.Add(toggleAddress);
 
         var dragSurface = new Border
         {
@@ -617,6 +626,20 @@ internal sealed class MainWindow : Window
         addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetRow(addressRow, 1);
         panelGrid.Children.Add(addressRow);
+        void ApplyAddressBarVisibility(bool visible)
+        {
+            addressRow.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            browserAddressGridRow.Height = new GridLength(visible ? 43 : 0);
+            toggleAddress.Content = visible ? "URL ▴" : "URL ▾";
+            toggleAddress.ToolTip = visible ? "Hide URL bar" : "Show URL bar";
+        }
+        ApplyAddressBarVisibility(_preferences.BrowserAddressBarVisible);
+        toggleAddress.Click += (_, _) =>
+        {
+            _preferences.BrowserAddressBarVisible = !_preferences.BrowserAddressBarVisible;
+            ApplyAddressBarVisibility(_preferences.BrowserAddressBarVisible);
+            SettingsStore.Save(_preferences);
+        };
 
         var back = MakeButton("‹", "#eaf1fa", "#245281", 20, 35);
         back.ToolTip = "Go back";
@@ -666,11 +689,25 @@ internal sealed class MainWindow : Window
         DockPanel.SetDock(telegram, Dock.Left);
 
         var star = MakeButton("☆  Save", "#e3f0fe", "#23558a", 11, 84);
+        star.ToolTip = "Save the currently open webpage as a named shortcut";
         star.Click += (_, _) => BookmarkCurrent();
         tools.Children.Add(star);
         DockPanel.SetDock(star, Dock.Left);
 
-        _savedWebsites.Width = 215;
+        var rename = MakeButton("✎ Rename", "#e3f0fe", "#23558a", 11, 92);
+        rename.ToolTip = "Rename the selected saved website";
+        rename.Click += (_, _) => RenameBookmark();
+        tools.Children.Add(rename);
+        DockPanel.SetDock(rename, Dock.Left);
+
+        var remove = MakeButton("×", "#e3f0fe", "#23558a", 14, 34);
+        remove.ToolTip = "Remove the selected saved website";
+        remove.Click += (_, _) => RemoveBookmark();
+        tools.Children.Add(remove);
+        DockPanel.SetDock(remove, Dock.Left);
+
+        _savedWebsites.MinWidth = 75;
+        _savedWebsites.MaxWidth = 300;
         _savedWebsites.Height = 32;
         _savedWebsites.Background = Brushes.White;
         _savedWebsites.Foreground = Paint("#234a78");
@@ -678,7 +715,7 @@ internal sealed class MainWindow : Window
         _savedWebsites.VerticalAlignment = VerticalAlignment.Center;
         _savedWebsites.SelectionChanged += async (_, _) =>
         {
-            if (_savedWebsites.SelectedItem is BookmarkItem item)
+            if (!_refreshingBookmarks && _savedWebsites.SelectedItem is BookmarkItem item)
                 await NavigateBrowserAsync(item.Url);
         };
         tools.Children.Add(_savedWebsites);
@@ -741,34 +778,192 @@ internal sealed class MainWindow : Window
         public override string ToString() => Name;
     }
 
-    private void RefreshBookmarks()
+    private void RefreshBookmarks(string? selectUrl = null)
     {
-        _savedWebsites.Items.Clear();
-        foreach (var url in (_preferences.Bookmarks ?? new List<string>()).Take(15))
+        _refreshingBookmarks = true;
+        try
         {
-            if (SettingsStore.TryWebAddress(url, out var uri))
-                _savedWebsites.Items.Add(new BookmarkItem(uri.AbsoluteUri, uri.Host));
+            _savedWebsites.Items.Clear();
+            foreach (var url in (_preferences.Bookmarks ?? new List<string>()).Take(15))
+            {
+                if (!SettingsStore.TryWebAddress(url, out var uri)) continue;
+                var title = _preferences.BookmarkTitles != null &&
+                    _preferences.BookmarkTitles.TryGetValue(url, out var savedName)
+                    ? savedName : uri.Host;
+                var item = new BookmarkItem(uri.AbsoluteUri, title);
+                _savedWebsites.Items.Add(item);
+                if (string.Equals(selectUrl, url, StringComparison.OrdinalIgnoreCase))
+                    _savedWebsites.SelectedItem = item;
+            }
+            if (_savedWebsites.SelectedItem is null) _savedWebsites.Text = "Saved websites";
         }
-        _savedWebsites.Text = "Saved websites";
+        finally { _refreshingBookmarks = false; }
+    }
+
+    private bool? ShowBrowserDialog(Window dialog)
+    {
+        // An active, explicitly requested bookmark dialog counts as an owned
+        // browser surface. Do not hide its owner as a ghost overlay while the
+        // prompt itself has focus. Switching to another app still hides it.
+        _browserDialog = dialog;
+        try { return dialog.ShowDialog(); }
+        finally
+        {
+            _browserDialog = null;
+            Dispatcher.BeginInvoke(new Action(RefreshNativeBrowserWindows),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
+    private string? PromptBookmarkName(string title, string initialName)
+    {
+        // Native modal is temporary and owned by the small floating browser;
+        // it never creates a persistent full-screen window or global overlay.
+        var prompt = new Window
+        {
+            Title = title,
+            Owner = _browserWindow?.IsVisible == true ? _browserWindow : this,
+            Width = 390, Height = 176,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false, Background = Paint("#f4f7fc")
+        };
+        var layout = new StackPanel { Margin = new Thickness(18, 13, 18, 10) };
+        layout.Children.Add(Text("Shortcut name", 12, "#234a78", FontWeights.SemiBold));
+        var input = MakeAddressBox();
+        input.Text = initialName.Length > 80 ? initialName[..80] : initialName;
+        input.Margin = new Thickness(0, 7, 0, 11);
+        input.MaxLength = 80;
+        layout.Children.Add(input);
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        var cancel = MakeButton("Cancel", "#edf1f7", "#234a78", 11, 76);
+        cancel.IsCancel = true;
+        cancel.Click += (_, _) => prompt.DialogResult = false;
+        buttons.Children.Add(cancel);
+        var accept = MakeButton("Save name", "#225fc0", "#ffffff", 11, 96);
+        accept.IsDefault = true;
+        accept.Click += (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(input.Text))
+            {
+                input.Focus();
+                return;
+            }
+            prompt.DialogResult = true;
+        };
+        buttons.Children.Add(accept);
+        layout.Children.Add(buttons);
+        prompt.Content = layout;
+        prompt.Loaded += (_, _) => { input.Focus(); input.SelectAll(); };
+        return ShowBrowserDialog(prompt) == true ? input.Text.Trim() : null;
     }
 
     private void BookmarkCurrent()
     {
-        var url = SettingsStore.RememberableUrl(_browserAddress.Text);
+        // Save what WebView2 is actually showing, not text still being edited
+        // in the Go field. Do not persist sensitive URL query/fragment tokens.
+        var liveUrl = _browserView.CoreWebView2?.Source;
+        if (!SettingsStore.TryWebAddress(liveUrl, out var current))
+        {
+            _notice.Text = "Open a website first, then press Save";
+            return;
+        }
+        var url = SettingsStore.RememberableUrl(current.AbsoluteUri);
         _preferences.Bookmarks ??= new List<string>();
-        if (_preferences.Bookmarks.Contains(url))
+        _preferences.BookmarkTitles ??= new Dictionary<string, string>();
+        var name = _preferences.BookmarkTitles.TryGetValue(url, out var existing)
+            ? existing
+            : (string.IsNullOrWhiteSpace(_browserView.CoreWebView2?.DocumentTitle)
+                ? current.Host : _browserView.CoreWebView2.DocumentTitle.Trim());
+        var chosen = PromptBookmarkName("Save website shortcut", name);
+        if (chosen is null) return;
+
+        _preferences.Bookmarks.RemoveAll(x => string.Equals(x, url,
+            StringComparison.OrdinalIgnoreCase));
+        _preferences.Bookmarks.Insert(0, url);
+        _preferences.Bookmarks = _preferences.Bookmarks.Take(15).ToList();
+        _preferences.BookmarkTitles[url] = chosen;
+        RefreshBookmarks(url);
+        SettingsStore.Save(_preferences);
+        _notice.Text = "Saved shortcut: " + chosen;
+    }
+
+    private void RenameBookmark()
+    {
+        if (_savedWebsites.SelectedItem is not BookmarkItem item)
         {
-            _preferences.Bookmarks.Remove(url);
-            _notice.Text = "Removed saved website";
+            _notice.Text = "Select a saved website before renaming";
+            return;
         }
-        else
+        var newName = PromptBookmarkName("Rename website shortcut", item.Name);
+        if (newName is null) return;
+        _preferences.BookmarkTitles ??= new Dictionary<string, string>();
+        _preferences.BookmarkTitles[item.Url] = newName;
+        RefreshBookmarks(item.Url);
+        SettingsStore.Save(_preferences);
+        _notice.Text = "Renamed shortcut to " + newName;
+    }
+
+    private void RemoveBookmark()
+    {
+        if (_savedWebsites.SelectedItem is not BookmarkItem item)
         {
-            _preferences.Bookmarks.Insert(0, url);
-            _preferences.Bookmarks = _preferences.Bookmarks.Take(15).ToList();
-            _notice.Text = "Website saved on this PC";
+            _notice.Text = "Select a saved website to remove";
+            return;
         }
+        var confirmation = new Window
+        {
+            Title = "Remove website shortcut",
+            Owner = _browserWindow?.IsVisible == true ? _browserWindow : this,
+            Width = 390, Height = 156,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false, Background = Paint("#f4f7fc")
+        };
+        var layout = new StackPanel { Margin = new Thickness(18, 14, 18, 10) };
+        layout.Children.Add(Text("Remove shortcut '" + item.Name + "'?", 12,
+            "#234a78", FontWeights.SemiBold));
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0)
+        };
+        var cancel = MakeButton("Cancel", "#edf1f7", "#234a78", 11, 76);
+        cancel.IsCancel = true;
+        cancel.Click += (_, _) => confirmation.DialogResult = false;
+        buttons.Children.Add(cancel);
+        var remove = MakeButton("Remove", "#b23434", "#ffffff", 11, 82);
+        remove.Click += (_, _) => confirmation.DialogResult = true;
+        buttons.Children.Add(remove);
+        layout.Children.Add(buttons);
+        confirmation.Content = layout;
+        if (ShowBrowserDialog(confirmation) != true) return;
+        _preferences.Bookmarks?.RemoveAll(x => string.Equals(x, item.Url,
+            StringComparison.OrdinalIgnoreCase));
+        _preferences.BookmarkTitles?.Remove(item.Url);
         RefreshBookmarks();
         SettingsStore.Save(_preferences);
+        _notice.Text = "Removed shortcut: " + item.Name;
+    }
+
+    private void SyncBrowserAddressFromWeb()
+    {
+        // SourceChanged fires for redirects, history traversal and SPA
+        // pushState/replaceState routes, not only full page loads.
+        if (!SettingsStore.TryWebAddress(_browserView.CoreWebView2?.Source,
+                out var current)) return;
+        _browserAddress.Text = current.AbsoluteUri;
+        var safe = SettingsStore.RememberableUrl(current.AbsoluteUri);
+        if (!string.Equals(_preferences.BrowserUrl, safe, StringComparison.Ordinal))
+        {
+            _preferences.BrowserUrl = safe;
+            SettingsStore.Save(_preferences);
+        }
     }
 
     private void WirePanelDrag(Border surface)
@@ -969,14 +1164,15 @@ internal sealed class MainWindow : Window
                     web.Navigate(target.AbsoluteUri);
                 }
             };
+            web.NavigationStarting += (_, e) =>
+            {
+                if (SettingsStore.TryWebAddress(e.Uri, out var destination))
+                    _browserAddress.Text = destination.AbsoluteUri;
+            };
+            web.SourceChanged += (_, _) => SyncBrowserAddressFromWeb();
             web.NavigationCompleted += (_, e) =>
             {
-                if (SettingsStore.TryWebAddress(web.Source, out var current))
-                {
-                    _browserAddress.Text = current.AbsoluteUri;
-                    _preferences.BrowserUrl = SettingsStore.RememberableUrl(current.AbsoluteUri);
-                    SettingsStore.Save(_preferences);
-                }
+                SyncBrowserAddressFromWeb();
                 _notice.Text = e.IsSuccess
                     ? "WebView2 browser • Private device profile retained"
                     : "Website navigation failed; check the address or your connection";
