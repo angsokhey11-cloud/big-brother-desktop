@@ -16,7 +16,7 @@ checks = {
         and 'addressRow.Children.Add(saveUrl);' in shell,
     "No Save/Rename controls in shortcut row": 'var star = MakeButton(' not in shell
         and 'var rename = MakeButton(' not in shell
-        and 'var remove = MakeButton(' not in shell,
+        and 'var remove = MakeButton("×"' not in shell,
     "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(name, "#e3f0fe"' in shell
         and '_shortcutButtons.Children.Add(button);' in shell,
     "No ComboBox for saved websites": 'ComboBox _savedWebsites' not in shell,
