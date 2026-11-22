@@ -136,7 +136,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         launcherContent.Children.Add(browserLabel);
         var bubble = new Button
         {
-            Content = launcherContent, Width = 76, Height = 73,
+            Content = launcherContent, Width = 64, Height = 73,
             BorderThickness = new Thickness(0), Background = Brushes.Transparent,
             Padding = new Thickness(0), Cursor = Cursors.Hand,
             ToolTip = "Open BIG BROTHER Browser from any function",
@@ -160,7 +160,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         _bubbleWindow = new Window
         {
             Owner = _owner, Content = bubble,
-            Width = 78, Height = 77,
+            Width = 66, Height = 77,
             Background = Brushes.Transparent, AllowsTransparency = true,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
@@ -695,12 +695,11 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         if (_closed || _owner.WindowState == WindowState.Minimized ||
             !_owner.IsLoaded || _bubbleWindow is null || _browserWindow is null) return;
         var origin = OwnerOrigin(_owner);
-        // Align with the BIG BROTHER brand header above the sidebar menu.
-        // Separate the globe/Browser label from the BIG BROTHER brand name.
-        // Keep its entire 78px click target within the right edge of the
-        // dark sidebar, below the headline, and above the main navigation.
-        _bubbleWindow.Left = origin.X + Math.Min(165, Math.Max(8, _owner.ActualWidth - 86));
-        _bubbleWindow.Top = origin.Y + 87;
+        // Restore the Browser globe to the brand's upper-right corner.
+        // The slim native hit area is entirely to the right of the actual
+        // logo text and does not obstruct its Dashboard navigation.
+        _bubbleWindow.Left = origin.X + Math.Min(182, Math.Max(8, _owner.ActualWidth - 70));
+        _bubbleWindow.Top = origin.Y + 25;
         MigratePosition();
         var width = Math.Clamp(_browserWindow.Width, 390, Math.Max(390, _owner.ActualWidth - 12));
         var height = Math.Clamp(_browserWindow.Height, 260, Math.Max(260, _owner.ActualHeight - 12));

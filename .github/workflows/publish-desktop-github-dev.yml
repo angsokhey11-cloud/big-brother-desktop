@@ -112,6 +112,12 @@ jobs:
           python tests/test_desktop_display_name.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop display naming regression failed" }
 
+      - name: Verify desktop logo text click area and Browser globe position
+        shell: pwsh
+        run: |
+          python tests/test_browser_logo_hit_area_v038.py
+          if ($LASTEXITCODE -ne 0) { throw "Desktop logo and Browser interaction regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
