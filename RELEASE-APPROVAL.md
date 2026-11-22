@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.3
+APPROVED_VERSION=0.3.4
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -99,3 +99,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Retain native HWND WebView2 and ghost-click safety guards, dialog focus isolation and all accounting UI/financial rules. No Cloud/PWA, Local Brain, Supabase, bank, invoice, A/R or inventory changes.
 - Full development Windows CI **45003200797** passed: browser shortcut/SPA static regression, desktop focus/ghost-click safety, Sales Support navigation regression, Windows warnings-as-errors compilation, 32 pinned accounting frontend bundles, and Velopack packaging and installer artifact upload. Real Telegram chat navigation on user PC remains an acceptance test.
 - Approved for consent-driven BIG BROTHER Desktop GitHub development prerelease only, not staff production rollout.
+
+## Approved v0.3.4 — Telegram Web A chat bookmark bootstrap routing
+
+- Real-PC report from v0.3.3: selecting a saved chat made its ID appear in the URL for roughly one second, then Telegram restored the old screen. Source inspection of the public Telegram Web A project (Ajaxy/telegram-tt) confirms its routing.ts captures the initial chat fragment at module startup and Main.tsx uses parseLocationHash in an effect keyed on currentUserId, not as a general hashchange handler.
+- Fix exact saved Telegram /a/, /k/, or /z/ chat links that share the current document base: use a single script evaluation to history.replaceState the full target URL, followed immediately by window.location.reload() so the target fragment is consumed by Telegram at initialization instead of briefly changing the address bar.
+- Other websites and cross-site route changes continue to use WebView2 navigation, and saved chats retain their full URLs only after the user's explicit Save action. Existing shortcut buttons, labels, the optional removable Telegram Web shortcut, popup-free browser profile, and URL-toolbar collapse are preserved.
+- Preserve the confirmed standard WebView2 HWND ghost-screen workaround, no topmost overlay or backend/accounting logic changes.
+- Full development Windows CI run **45004238898** succeeded: browser regression, ghost-click safety, Sales Support navigation, warnings-as-errors .NET 10 compilation, 32 frontend snapshots, installer and Velopack package artifact.
+- This is an internal consent-driven development prerelease. Telegram's real app behavior still requires acceptance testing on the user's signed-in PC; CI cannot exercise private Telegram chat navigation.

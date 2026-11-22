@@ -1260,33 +1260,51 @@ internal sealed class MainWindow : Window
         }
 
         var web = _browserView.CoreWebView2;
-        // A saved Telegram chat often differs only by #chat-id. Calling
-        // CoreWebView2.Navigate() for every click reloads Telegram's whole
-        // SPA, which can restore its home/chat-list route and discard the
-        // requested chat. Switch the fragment INSIDE the running document.
-        if (SettingsStore.TryWebAddress(web.Source, out var current) &&
-            url.Fragment.Length > 0 &&
+        // Telegram Web A parses its chat hash only on APP BOOT (routing.ts
+        // captureInitialLocation / Main.tsx parseLocationHash). A hash-only
+        // change displays the new ID briefly, but does NOT open that chat:
+        // Telegram then overwrites it with the previously selected chat.
+        //
+        // For saved Telegram chat URLs, atomically stage the full target URL
+        // in the current document history and force a real document reload.
+        // The new app boot consumes the requested chat ID. Keep the existing
+        // WebView2 instance/profile: no logout, no new popup or overlay.
+        var isTelegramChat = string.Equals(url.Host, "web.telegram.org",
+                StringComparison.OrdinalIgnoreCase) &&
+            (url.AbsolutePath.StartsWith("/a/", StringComparison.OrdinalIgnoreCase) ||
+             url.AbsolutePath.StartsWith("/k/", StringComparison.OrdinalIgnoreCase) ||
+             url.AbsolutePath.StartsWith("/z/", StringComparison.OrdinalIgnoreCase)) &&
+            System.Text.RegularExpressions.Regex.IsMatch(url.Fragment,
+                @"^#-?\d+(?:[_?].*)?$");
+
+        if (isTelegramChat && SettingsStore.TryWebAddress(web.Source, out var current) &&
             string.Equals(current.GetLeftPart(UriPartial.Query),
                 url.GetLeftPart(UriPartial.Query), StringComparison.OrdinalIgnoreCase))
         {
+            if (string.Equals(current.Fragment, url.Fragment, StringComparison.Ordinal))
+            {
+                _notice.Text = "Telegram chat already selected in the address bar";
+                return;
+            }
             try
             {
-                if (!string.Equals(current.Fragment, url.Fragment, StringComparison.Ordinal))
-                {
-                    var fragmentLiteral = JsonSerializer.Serialize(url.Fragment);
-                    await web.ExecuteScriptAsync("window.location.hash = " +
-                        fragmentLiteral + ";");
-                }
-                _notice.Text = "Opening saved page in current browser session";
+                // history.replaceState alone is NOT navigation; reload is
+                // essential to force Telegram's initial-chat parser to run.
+                // Both operations run in one script task, before the SPA can
+                // restore its previous hash between separate host calls.
+                var targetLiteral = JsonSerializer.Serialize(url.AbsoluteUri);
+                await web.ExecuteScriptAsync(
+                    "window.history.replaceState(window.history.state, '', " +
+                    targetLiteral + "); window.location.reload();");
+                _notice.Text = "Loading saved Telegram chat from its exact URL…";
                 return;
             }
             catch (InvalidOperationException)
             {
-                // The page may be transitioning; fall back to regular
-                // navigation if there is no active script context.
+                // Script context could be between navigations. Use a new
+                // document navigation instead of silently dropping the click.
             }
         }
-        // Different sites or documents still open as top-level pages.
         web.Navigate(url.AbsoluteUri);
         _notice.Text = "Navigating to " + url.Host + "…";
     }
