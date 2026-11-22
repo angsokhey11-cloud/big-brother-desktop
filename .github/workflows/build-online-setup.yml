@@ -50,7 +50,7 @@ jobs:
           New-Item -ItemType Directory -Force 'bootstrapper-output' | Out-Null
           $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
           if (-not (Test-Path $csc)) { throw "Windows .NET Framework C# compiler missing: $csc" }
-          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /warnaserror+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Core.dll /win32icon:build/icon/big-brother.ico /out:bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe bootstrapper/OnlineSetup.cs
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /warnaserror+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Core.dll /win32icon:build\icon\big-brother.ico /out:bootstrapper-output\BIG-BROTHER-Desktop-Online-Setup.exe bootstrapper\OnlineSetup.cs
           if ($LASTEXITCODE -ne 0) { throw "Online Setup C# build failed: $LASTEXITCODE" }
           $file = Get-Item bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe
           if ($file.Length -gt 2097152 -or $file.Length -lt 10000) {
