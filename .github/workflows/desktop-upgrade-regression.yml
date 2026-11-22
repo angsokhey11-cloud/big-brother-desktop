@@ -1,0 +1,72 @@
+name: Verify BIG BROTHER Desktop in-place upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/desktop-upgrade-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  upgrade-in-place:
+    name: Upgrade installed v0.2.0 to v0.2.3 (ephemeral Windows runner)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch previously verified 0.2.0 installation package
+        shell: pwsh
+        run: |
+          gh run download 44987495055 --repo angsokhey11-cloud/big-brother-desktop --name BIG-BROTHER-Desktop-DEV-Installer --dir old-release
+          if ($LASTEXITCODE -ne 0) { throw "Could not download old release." }
+
+      - name: Fetch newly compiled 0.2.3 update package
+        shell: pwsh
+        run: |
+          gh run download 44989142204 --repo angsokhey11-cloud/big-brother-desktop --name BIG-BROTHER-Desktop-DEV-Installer --dir new-release
+          if ($LASTEXITCODE -ne 0) { throw "Could not download new release." }
+
+      - name: Install old release silently on disposable Windows machine
+        shell: pwsh
+        run: |
+          $oldSetup = Get-ChildItem old-release -File -Filter '*-Setup.exe' | Select-Object -First 1
+          if (-not $oldSetup) { throw "Old Setup.exe is missing." }
+          $p = Start-Process -FilePath $oldSetup.FullName -ArgumentList '--silent' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Old installer failed: $($p.ExitCode)" }
+          $root = Join-Path $env:LOCALAPPDATA 'BigBrother.Desktop'
+          if (-not (Test-Path (Join-Path $root 'Update.exe'))) { throw "Installed updater missing." }
+          [xml]$oldVersion = Get-Content -Raw (Join-Path $root 'current/sq.version')
+          if ([string]$oldVersion.package.metadata.version -ne '0.2.0') {
+            throw "Old install version mismatch: $($oldVersion.package.metadata.version)"
+          }
+          $profile = Join-Path $env:LOCALAPPDATA 'BIG BROTHER/Desktop'
+          New-Item -ItemType Directory -Force -Path $profile | Out-Null
+          Set-Content (Join-Path $profile 'upgrade-regression-marker.txt') 'retain-me'
+          Write-Host "Installed original version 0.2.0."
+
+      - name: Upgrade without uninstall or deleting user data
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:LOCALAPPDATA 'BigBrother.Desktop'
+          $updater = Join-Path $root 'Update.exe'
+          $package = @(Get-ChildItem new-release -File -Filter 'BigBrother.Desktop-0.2.3-dev-full.nupkg')
+          if ($package.Count -ne 1) { throw "Expected exactly one v0.2.3 full package." }
+          $p = Start-Process -FilePath $updater -ArgumentList @(
+            'apply', '--norestart', '--package', ('"' + $package[0].FullName + '"')
+          ) -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Velopack in-place update failed: $($p.ExitCode)" }
+          [xml]$newVersion = Get-Content -Raw (Join-Path $root 'current/sq.version')
+          if ([string]$newVersion.package.metadata.version -ne '0.2.3') {
+            throw "Installed version did not advance: $($newVersion.package.metadata.version)"
+          }
+          $profile = Join-Path $env:LOCALAPPDATA 'BIG BROTHER/Desktop'
+          if ((Get-Content (Join-Path $profile 'upgrade-regression-marker.txt')) -ne 'retain-me') {
+            throw "Browser/settings folder was not retained by the update."
+          }
+          Write-Host "Verified 0.2.0 -> 0.2.3 in-place upgrade; profile data retained."
