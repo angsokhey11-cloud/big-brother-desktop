@@ -10,8 +10,8 @@ checks={
         and "SyncAddress();" in browser,
     "Displayed full URL includes fragment": "_address.Text = current.AbsoluteUri;" in browser,
     "Save URL at end of address bar": "Grid.SetColumn(save, 5);" in browser,
-    "Saved website appears in shortcut row and Home": "_shortcutButtons.Children.Add(button);" in browser
-        and "_homeButtons.Children.Add(homeButton);" in browser,
+    "Saved website appears only in top shortcut strip": "_shortcutButtons.Children.Add(button);" in browser
+        and "_homeButtons" not in browser,
     "Triple-click rename never navigates on first two clicks": "if (clicks >= 3)" in browser
         and "TimeSpan.FromMilliseconds(650)" in browser,
     "Right-click rename and remove": "button.ContextMenu = context;" in browser
