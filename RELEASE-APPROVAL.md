@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.2
+APPROVED_VERSION=0.3.3
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -89,3 +89,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Preserve v0.3.0 standard WebView2 HWND ghost-click isolation, Telegram persistent device profile, and all accounting module/backend boundaries. No Cloud/PWA, Local Brain, Supabase, invoice, bank, stock, A/R or accounting schema changes.
 - Development Windows CI **45002083544** passed: all static browser and focus safety regressions, Sales Support navigation regression, warnings-as-errors Windows build, 32 pinned frontend bundles, Velopack installer packaging and uploaded dev installer artifact.
 - Release only to the consent-driven internal development prerelease channel, not to production staff.
+
+## Approved v0.3.3 — Repeatable Telegram chat shortcuts and removable default
+
+- User reported two v0.3.2 defects after real-PC testing: saved Telegram chat URL buttons worked only once and subsequently reopened Telegram's home page instead of the specific conversation; the permanent Telegram Web button could not be removed.
+- For an already-open web document and a saved URL that differs only by hash, use the existing WebView2 document's JavaScript location.hash update, avoiding a full top-level WebView2.Navigate reload of Telegram's SPA and preserving the signed-in session. Cross-site or non-hash navigations continue to use CoreWebView2.Navigate.
+- Render Telegram Web as the first optional button under the same direct-open, triple-click rename and right-click Rename/Remove controls as saved shortcuts. Removing that button changes only its persisted visibility, not Telegram Web access, saved chat buttons, or the browser profile; the user may still type or Save Telegram Web again.
+- Persist the optional default shortcut's visibility and name in settings while retaining backward compatibility with existing Bookmarks and BookmarkTitles. URL bar Save position, full explicitly saved chat URLs, chat session profile, auto-sanitized BrowserUrl, and URL bar collapse preference remain unchanged.
+- Retain native HWND WebView2 and ghost-click safety guards, dialog focus isolation and all accounting UI/financial rules. No Cloud/PWA, Local Brain, Supabase, bank, invoice, A/R or inventory changes.
+- Full development Windows CI **45003200797** passed: browser shortcut/SPA static regression, desktop focus/ghost-click safety, Sales Support navigation regression, Windows warnings-as-errors compilation, 32 pinned accounting frontend bundles, and Velopack packaging and installer artifact upload. Real Telegram chat navigation on user PC remains an acceptance test.
+- Approved for consent-driven BIG BROTHER Desktop GitHub development prerelease only, not staff production rollout.

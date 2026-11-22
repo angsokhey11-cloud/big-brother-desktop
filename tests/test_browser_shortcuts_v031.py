@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static safety regression for BIG BROTHER Desktop v0.3.2 browser workspace.
+"""Static safety regression for BIG BROTHER Desktop v0.3.3 browser workspace.
 
 Checks the browser-specific source contract; Windows UI acceptance is separate.
 """
@@ -17,7 +17,7 @@ checks = {
     "No Save/Rename controls in shortcut row": 'var star = MakeButton(' not in shell
         and 'var rename = MakeButton(' not in shell
         and 'var remove = MakeButton("×"' not in shell,
-    "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(name, "#e3f0fe"' in shell
+    "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(item.Name, "#e3f0fe"' in shell
         and '_shortcutButtons.Children.Add(button);' in shell,
     "No ComboBox for saved websites": 'ComboBox _savedWebsites' not in shell,
     "Shortcut row scrolls horizontally": 'HorizontalScrollBarVisibility = ScrollBarVisibility.Auto' in shell,
@@ -25,7 +25,7 @@ checks = {
         and 'await NavigateBrowserAsync(item.Url);' in shell
         and 'TimeSpan.FromMilliseconds(650)' in shell,
     "Shortcut has right-click rename/remove menu": 'button.ContextMenu = menu;' in shell
-        and 'RemoveBookmark(item);' in shell,
+        and 'RemoveBookmark(item, isBuiltIn);' in shell,
     "Full Telegram chat URL is saved ONLY on explicit Save": 'var url = current.AbsoluteUri;' in shell
         and 'var liveUrl = _browserView.CoreWebView2?.Source;' in shell,
     "Auto-persisted browser restore does not save tokens": 'SettingsStore.RememberableUrl(current.AbsoluteUri)' in shell,
@@ -35,7 +35,18 @@ checks = {
     "Ghost click isolation architecture unchanged": 'private readonly WebView2 _workspaceView = new();' in shell
         and 'private readonly WebView2 _browserView = new();' in shell
         and 'WebView2CompositionControl' not in shell,
-    "Next release version": '<Version>0.3.2</Version>' in project,
+    "Removable built-in Telegram shortcut": 'if (_preferences.TelegramShortcutVisible)' in shell
+        and '_preferences.TelegramShortcutVisible = false;' in shell
+        and 'RemoveBookmark(item, isBuiltIn);' in shell,
+    "Default Telegram shortcut can be renamed": '_preferences.TelegramShortcutName = newName;' in shell
+        and 'RenameBookmark(item, isBuiltIn);' in shell,
+    "Default shortcut visibility persists": 'public bool TelegramShortcutVisible { get; set; } = true;' in store,
+    "Telegram chat hash navigation avoids WebView2 reload": 'url.Fragment.Length > 0' in shell
+        and 'await web.ExecuteScriptAsync("window.location.hash = " +' in shell
+        and 'JsonSerializer.Serialize(url.Fragment)' in shell
+        and 'GetLeftPart(UriPartial.Query)' in shell,
+    "Non-hash and cross-site navigation still uses WebView2": 'web.Navigate(url.AbsoluteUri);' in shell,
+    "Next release version": '<Version>0.3.3</Version>' in project,
 }
 for label, passed in checks.items():
     assert passed, "FAILED " + label
