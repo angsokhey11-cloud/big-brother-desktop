@@ -160,7 +160,18 @@ internal sealed class MainWindow : Window
         SourceInitialized += InstallNativeUpdateMenu;
 
         BuildWindow();
-        Loaded += async (_, _) => await InitializeWorkspaceAsync();
+        Loaded += async (_, _) =>
+        {
+            await InitializeWorkspaceAsync();
+            // Give the installed Dashboard time to render first. The update
+            // check is quiet when offline or already current, and never blocks
+            // regular accounting work or downloads without a user decision.
+            await Task.Delay(2200);
+            await UpdateService.CheckForUpdatesAsync(this,
+                status => Title = status.Contains("Downloading")
+                    ? "BIG BROTHER Desktop • Updating" : "BIG BROTHER Desktop",
+                quietIfCurrent: true);
+        };
         Closing += (_, _) =>
         {
             RememberPanel();
