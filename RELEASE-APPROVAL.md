@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.8
+APPROVED_VERSION=0.3.9
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -152,3 +152,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - All v0.3.7 features remain: clean BIG BROTHER Desktop Windows display title without “(Development)”, persisted shortcut order, wheel scrolling, zero-height Shortcut collapse, full Telegram saved URLs and global multi-tab Browser.
 - Verified Windows development CI run **45015339851** passed the new logo hit-area regression, Browser focus/shortcuts/tabs regressions, Sales Support navigation, warnings-as-errors .NET build, pinned frontend bundling, and Velopack installer artifact upload.
 - Approve for internal consent-based GitHub development prerelease only. User-PC confirmation remains needed for native click boundaries and visual placement. Production/staff approval not granted; no Supabase, Cloud/PWA or Local Brain changes.
+
+## Approved v0.3.9 — Browser globe follows collapsed Dashboard sidebar
+
+- User-confirmed v0.3.8 bug: when collapsing the installed Desktop Dashboard sidebar (body.bb-sidebar-collapsed / .sidebar display:none), the separate native Browser globe stayed at the previous screen coordinates and floated over Invoice Generator/accounting workspace, potentially intercepting invoice form clicks.
+- Desktop native host now observes the trusted top-level installed Dashboard shell's actual sidebar visibility via an injected one-way MutationObserver (body class, initial DOM load, resize). It emits only bbDesktopSidebarCollapsedV1:0/1 through WebView2; C# accepts only a string from exact app.bigbrother.test/big-brother-dashboard/index.html source and exposes no privileged host objects, accounting values or database commands.
+- Native GlobalBrowserWorkspace hides the entire owned globe HWND immediately on sidebar collapse and keeps it hidden through Refresh, window focus changes and browser minimize/Close. When expanding the sidebar, the launcher reappears in its original brand-header corner. An already-open Browser window remains open with its active tabs, shortcuts, Telegram login and browser profile unaffected.
+- All v0.3.8 Browser features remain: independent multi-tab browser, branded Home, full explicit Telegram chat URL bookmarks, shortcut row mouse wheel/drag reorder, collapse toggle and BIG BROTHER logo's limited text hit area.
+- No Cloud/PWA, Local Brain, Supabase, financial records, invoice, inventory, A/R, bank or accounting logic modifications. Preserve the standard non-topmost HWND WebView2 ghost-click architecture.
+- Full development Windows CI run **45016566573** passed: trusted sidebar collapse signaling regression, shortcut, branding and ghost-screen tests, Sales Support navigation, warnings-as-errors .NET 10 compile, bundled accounting frontend snapshots, and Velopack Windows installer artifact upload.
+- Approved for internal consent-controlled GitHub development prerelease only. User PC acceptance required for collapsed/expanded navigation and Windows click isolation; staff production rollout not authorized.
