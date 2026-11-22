@@ -1,0 +1,13 @@
+# Build output only — never put customer data or secrets in Git
+build/
+publish/
+releases/
+bin/
+obj/
+.vs/
+*.user
+*.pfx
+*.p12
+*.key
+.env
+.env.*

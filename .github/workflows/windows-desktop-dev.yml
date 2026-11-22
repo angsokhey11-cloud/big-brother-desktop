@@ -1,0 +1,108 @@
+name: BIG BROTHER Desktop — Windows development installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tools/**'
+      - 'config/**'
+      - 'docs/**'
+      - '.github/workflows/windows-desktop-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    name: Build full desktop app and Setup.exe (dev only)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout desktop source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Snapshot 32 pinned accounting frontends
+        shell: pwsh
+        run: |
+          python tools/bundle_web.py
+          if ($LASTEXITCODE -ne 0) { throw "Frontend bundling failed" }
+
+      - name: Publish source and external dependency inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIG-BROTHER-Desktop-DEV-Bundle-Report
+          path: build/bundle-report.json
+          retention-days: 21
+
+      - name: Compile Desktop with warnings as errors
+        shell: pwsh
+        run: |
+          dotnet build src/BBDesktop.csproj --configuration Release --no-incremental --warnaserror
+          if ($LASTEXITCODE -ne 0) { throw "C# compilation failed" }
+
+      - name: Publish self-contained Windows x64 application
+        shell: pwsh
+        run: |
+          dotnet publish src/BBDesktop.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:DebugType=None -p:DebugSymbols=false
+          if ($LASTEXITCODE -ne 0) { throw "Desktop publish failed" }
+
+      - name: Verify essential local accounting files and native dependencies
+        shell: pwsh
+        run: |
+          $required = @(
+            'publish/BIG-BROTHER-Desktop.exe',
+            'publish/Microsoft.Windows.SDK.NET.dll',
+            'publish/Microsoft.Web.WebView2.Wpf.dll',
+            'publish/web/big-brother-dashboard/index.html',
+            'publish/web/big-brother-dashboard/legacy-dashboard-v3.40.html',
+            'publish/web/big-brother-invoice-generator/index.html',
+            'publish/web/big-brother-ar/index.html',
+            'publish/web/big-brother-stock-managemenet/index.html',
+            'publish/update-source.json'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Required desktop package file missing: $file" }
+          }
+          $sdk = [System.Reflection.AssemblyName]::GetAssemblyName((Resolve-Path 'publish/Microsoft.Windows.SDK.NET.dll').Path)
+          if ($sdk.Version -lt [version]'10.0.17763.10') {
+            throw "Incompatible Windows SDK projection assembly: $($sdk.FullName)"
+          }
+          $count = (Get-ChildItem 'publish/web' -Directory).Count
+          if ($count -ne 32) { throw "Expected 32 local modules, found $count" }
+          Write-Host "All 32 module folders and essential native dependencies verified."
+
+      - name: Install pinned Velopack installer tool
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk --version 1.2.161
+          if ($LASTEXITCODE -ne 0) { throw "Velopack tool installation failed" }
+
+      - name: Build real Windows Setup.exe and versioned dev packages
+        shell: pwsh
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack --packId BigBrother.Desktop --packVersion 0.2.0 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --outputDir releases --noPortable
+          if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
+          $setup = Get-ChildItem releases -Filter '*Setup.exe'
+          if (-not $setup) { throw "No Windows Setup.exe produced" }
+          Get-ChildItem releases | Select-Object Name,Length
+
+      - name: Upload REAL Windows development installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIG-BROTHER-Desktop-DEV-Installer
+          path: releases/*
+          if-no-files-found: error
+          retention-days: 21
