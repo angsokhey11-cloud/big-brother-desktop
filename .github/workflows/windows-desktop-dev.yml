@@ -96,6 +96,12 @@ jobs:
           python tests/test_browser_sidebar_collapse_v039.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop Browser sidebar-collapse regression failed" }
 
+      - name: Guard retired PWA Browser and native Browser fallback
+        shell: pwsh
+        run: |
+          python tests/test_no_legacy_pwa_browser_v0310.py
+          if ($LASTEXITCODE -ne 0) { throw "Retired PWA Browser or native Browser fallback failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
