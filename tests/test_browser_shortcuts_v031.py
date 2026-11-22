@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser Workspace v0.3.5 shortcuts, URL and local profile regression."""
+"""Browser Workspace v0.3.6 shortcuts, URL and local profile regression."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
@@ -28,7 +28,7 @@ checks={
     "URL bar collapse preserved": "SetAddressVisibility();" in browser
         and "BrowserAddressBarVisible" in browser,
     "Existing persistent WebView2 profile reused": "SettingsStore.BrowserProfile" in browser,
-    "Correct development version": "<Version>0.3.5</Version>" in proj,
+    "Correct development version": "<Version>0.3.6</Version>" in proj,
 }
 for k,v in checks.items():
     assert v,"FAILED "+k

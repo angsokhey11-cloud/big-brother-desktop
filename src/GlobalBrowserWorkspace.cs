@@ -9,6 +9,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -35,7 +36,6 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private readonly Border _home = new();
     private readonly StackPanel _tabButtons = new() { Orientation = Orientation.Horizontal };
     private readonly StackPanel _shortcutButtons = new() { Orientation = Orientation.Horizontal };
-    private readonly WrapPanel _homeButtons = new();
     private readonly TextBox _address = new();
     private readonly TextBlock _status = new();
     private readonly List<BrowserTab> _tabs = new();
@@ -97,18 +97,64 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         if (_bubbleWindow is not null) return;
         BuildBrowserPanel();
 
-        var bubble = Button("◎", "#225fc0", "#ffffff", 56);
-        bubble.Height = 56;
-        bubble.FontSize = 30;
-        bubble.BorderBrush = Brushes.White;
-        bubble.BorderThickness = new Thickness(2);
-        bubble.ToolTip = "Open BIG BROTHER Browser from any function";
+        // Unboxed white vector globe + Browser label; no blue tile,
+        // background fill or heavyweight transparent overlay window.
+        var globe = new Canvas { Width = 38, Height = 38 };
+        globe.Children.Add(new Ellipse
+        {
+            Width = 34, Height = 34, Stroke = Brushes.White,
+            StrokeThickness = 1.8, Fill = Brushes.Transparent
+        });
+        globe.Children.Add(new Ellipse
+        {
+            Width = 14, Height = 34, Stroke = Brushes.White,
+            StrokeThickness = 1.5, Fill = Brushes.Transparent
+        });
+        Canvas.SetLeft(globe.Children[1], 10);
+        foreach (var y in new[] { 11.0, 23.0 })
+            globe.Children.Add(new Line
+            {
+                X1 = 2, X2 = 32, Y1 = y, Y2 = y,
+                Stroke = Brushes.White, StrokeThickness = 1.4
+            });
+        var launcherContent = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        launcherContent.Children.Add(globe);
+        var browserLabel = Label("Browser", 11, "#ffffff", true);
+        browserLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        browserLabel.Margin = new Thickness(0, 3, 0, 0);
+        launcherContent.Children.Add(browserLabel);
+        var bubble = new Button
+        {
+            Content = launcherContent, Width = 76, Height = 73,
+            BorderThickness = new Thickness(0), Background = Brushes.Transparent,
+            Padding = new Thickness(0), Cursor = Cursors.Hand,
+            ToolTip = "Open BIG BROTHER Browser from any function",
+            FocusVisualStyle = null
+        };
+        // WPF's default Button template draws a coloured hover rectangle.
+        // Replace it with a fully transparent click target.
+        var template = new ControlTemplate(typeof(Button));
+        var backdrop = new FrameworkElementFactory(typeof(Border));
+        backdrop.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty,
+            HorizontalAlignment.Center);
+        presenter.SetValue(ContentPresenter.VerticalAlignmentProperty,
+            VerticalAlignment.Center);
+        backdrop.AppendChild(presenter);
+        template.VisualTree = backdrop;
+        bubble.Template = template;
         bubble.Click += (_, _) => Open();
 
         _bubbleWindow = new Window
         {
             Owner = _owner, Content = bubble,
-            Width = 58, Height = 58,
+            Width = 78, Height = 77,
             Background = Brushes.Transparent, AllowsTransparency = true,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
@@ -183,7 +229,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             Background = Brushes.Transparent,
             Padding = new Thickness(12, 0, 0, 0),
             Cursor = Cursors.SizeAll,
-            Child = Label("◉  BIG BROTHER Browser   •   drag to move", 13, "#ffffff", true)
+            Child = Label("BIG BROTHER Browser   •   drag to move", 13, "#ffffff", true)
         };
         drag.MouseLeftButtonDown += (_, e) =>
         {
@@ -289,24 +335,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         Grid.SetRow(shortcutRow, 3);
         _layout.Children.Add(shortcutRow);
 
-        _home.Background = Brushes.White;
-        var welcome = new StackPanel { Margin = new Thickness(20, 24, 20, 14) };
-        welcome.Children.Add(Label("BIG BROTHER Browser", 22, "#174888", true));
-        var guide = Label("Open a saved website, or type a URL above. New tabs start here.", 12, "#677c94");
-        guide.Margin = new Thickness(0, 9, 0, 19);
-        welcome.Children.Add(guide);
-        var heading = Label("YOUR SHORTCUTS", 12, "#325b88", true);
-        heading.Margin = new Thickness(0, 0, 0, 12);
-        welcome.Children.Add(heading);
-        welcome.Children.Add(_homeButtons);
-        var hint = Label("Close starts fresh next time. Minimize keeps your tabs open.", 11, "#71859b");
-        hint.Margin = new Thickness(0, 20, 0, 0);
-        welcome.Children.Add(hint);
-        _home.Child = new ScrollViewer
-        {
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Content = welcome
-        };
+        BuildBrandedHome();
         _content.Children.Add(_home);
         Grid.SetRow(_content, 4);
         _layout.Children.Add(_content);
@@ -348,6 +377,239 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         RefreshShortcuts();
     }
 
+    private static Border HomePanel(string heading, string body, string background)
+    {
+        var contents = new StackPanel { Margin = new Thickness(20, 18, 20, 18) };
+        contents.Children.Add(Label(heading, 15, "#164880", true));
+        var detail = Label(body, 12, "#526a86");
+        detail.Margin = new Thickness(0, 10, 0, 0);
+        detail.TextWrapping = TextWrapping.Wrap;
+        contents.Children.Add(detail);
+        return new Border
+        {
+            Width = 335, MinHeight = 155,
+            Background = Paint(background),
+            BorderBrush = Paint("#d5e4f4"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Margin = new Thickness(0, 0, 12, 12),
+            Child = contents
+        };
+    }
+
+    private static Canvas DairyArtwork()
+    {
+        // Lightweight WPF vector art; no external network images or downloads.
+        // All decorative shapes are non-interactive.
+        var art = new Canvas { Width = 276, Height = 216, IsHitTestVisible = false };
+        var sky = new Ellipse { Width = 252, Height = 158, Fill = Paint("#d7efff"), Opacity = .8 };
+        Canvas.SetLeft(sky, 7);
+        Canvas.SetTop(sky, 14);
+        art.Children.Add(sky);
+
+        var meadow = new Ellipse { Width = 270, Height = 64, Fill = Paint("#b9e4cf") };
+        Canvas.SetLeft(meadow, 3);
+        Canvas.SetTop(meadow, 152);
+        art.Children.Add(meadow);
+
+        var warehouse = new Border
+        {
+            Width = 92, Height = 65,
+            Background = Paint("#f6fbff"),
+            BorderBrush = Paint("#88b3d9"), BorderThickness = new Thickness(1.2),
+            CornerRadius = new CornerRadius(5)
+        };
+        Canvas.SetLeft(warehouse, 14);
+        Canvas.SetTop(warehouse, 100);
+        art.Children.Add(warehouse);
+        var roof = new Polygon
+        {
+            Points = new PointCollection { new(9, 103), new(60, 67), new(111, 103) },
+            Fill = Paint("#326cb0")
+        };
+        art.Children.Add(roof);
+        var whLabel = Label("BIG BROTHER", 9, "#21528b", true);
+        Canvas.SetLeft(whLabel, 21);
+        Canvas.SetTop(whLabel, 123);
+        art.Children.Add(whLabel);
+
+        var truckBody = new Border
+        {
+            Width = 111, Height = 43, Background = Paint("#ffffff"),
+            BorderBrush = Paint("#3979b9"), BorderThickness = new Thickness(1.3),
+            CornerRadius = new CornerRadius(6)
+        };
+        Canvas.SetLeft(truckBody, 90);
+        Canvas.SetTop(truckBody, 153);
+        art.Children.Add(truckBody);
+        var truckFront = new Border
+        {
+            Width = 33, Height = 34, Background = Paint("#3778bd"),
+            CornerRadius = new CornerRadius(6)
+        };
+        Canvas.SetLeft(truckFront, 184);
+        Canvas.SetTop(truckFront, 162);
+        art.Children.Add(truckFront);
+        var truckTitle = Label("MILK", 14, "#2867a9", true);
+        Canvas.SetLeft(truckTitle, 113);
+        Canvas.SetTop(truckTitle, 165);
+        art.Children.Add(truckTitle);
+        foreach (var left in new[] { 111.0, 183.0 })
+        {
+            var wheel = new Ellipse { Width = 17, Height = 17, Fill = Paint("#23456e") };
+            Canvas.SetLeft(wheel, left);
+            Canvas.SetTop(wheel, 189);
+            art.Children.Add(wheel);
+        }
+
+        var bottle = new Border
+        {
+            Width = 76, Height = 126, Background = Paint("#fdfefe"),
+            BorderBrush = Paint("#75add3"), BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(15)
+        };
+        Canvas.SetLeft(bottle, 186);
+        Canvas.SetTop(bottle, 42);
+        art.Children.Add(bottle);
+        var cap = new Border
+        {
+            Width = 56, Height = 17, Background = Paint("#236db4"),
+            CornerRadius = new CornerRadius(5)
+        };
+        Canvas.SetLeft(cap, 196);
+        Canvas.SetTop(cap, 34);
+        art.Children.Add(cap);
+        var bottleLabel = new Border
+        {
+            Width = 70, Height = 53, Background = Paint("#e5f2ff"),
+            CornerRadius = new CornerRadius(7)
+        };
+        Canvas.SetLeft(bottleLabel, 189);
+        Canvas.SetTop(bottleLabel, 94);
+        art.Children.Add(bottleLabel);
+        var fresh = Label("FRESH", 11, "#195c9d", true);
+        Canvas.SetLeft(fresh, 202);
+        Canvas.SetTop(fresh, 101);
+        art.Children.Add(fresh);
+        var milk = Label("MILK", 13, "#195c9d", true);
+        Canvas.SetLeft(milk, 204);
+        Canvas.SetTop(milk, 119);
+        art.Children.Add(milk);
+        return art;
+    }
+
+    private void BuildBrandedHome()
+    {
+        // This is a local, decorative Home surface. Do not manufacture live
+        // financial statistics or duplicate the clickable shortcuts strip.
+        _home.Background = Paint("#f6f9fe");
+        var page = new StackPanel { Margin = new Thickness(18, 18, 16, 17) };
+
+        var hero = new Border
+        {
+            MinHeight = 242, Padding = new Thickness(0),
+            CornerRadius = new CornerRadius(14),
+            BorderThickness = new Thickness(1),
+            BorderBrush = Paint("#cbdff4"),
+            Background = new LinearGradientBrush(
+                Paint("#ffffff").Color, Paint("#dceeff").Color,
+                new Point(0, 0), new Point(1, 1))
+        };
+        var heroGrid = new Grid();
+        var art = DairyArtwork();
+        art.HorizontalAlignment = HorizontalAlignment.Right;
+        art.VerticalAlignment = VerticalAlignment.Bottom;
+        art.Margin = new Thickness(0, 0, 4, 0);
+        heroGrid.Children.Add(art);
+
+        var heroText = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(25, 22, 264, 24)
+        };
+        heroText.Children.Add(Label("BIG BROTHER  /  CAMBODIA", 11, "#2b6eb2", true));
+        var title = Label("Welcome to BIG BROTHER Browser", 25, "#103d74", true);
+        title.TextWrapping = TextWrapping.Wrap;
+        title.Margin = new Thickness(0, 13, 0, 0);
+        heroText.Children.Add(title);
+        var subtitle = Label("Your workspace for fresh milk distribution, sales, payments and business coordination.", 12, "#486483");
+        subtitle.TextWrapping = TextWrapping.Wrap;
+        subtitle.Margin = new Thickness(0, 12, 0, 0);
+        heroText.Children.Add(subtitle);
+
+        var categories = new WrapPanel { Margin = new Thickness(0, 16, 0, 0) };
+        foreach (var caption in new[] { "Fresh Milk", "Distribution", "Accounting" })
+        {
+            var pill = new Border
+            {
+                Background = Paint("#eff7ff"),
+                BorderBrush = Paint("#c9dff5"), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10, 4, 10, 4),
+                Margin = new Thickness(0, 0, 7, 5),
+                Child = Label(caption, 11, "#235d97", true)
+            };
+            categories.Children.Add(pill);
+        }
+        heroText.Children.Add(categories);
+        heroGrid.Children.Add(heroText);
+        hero.Child = heroGrid;
+        hero.SizeChanged += (_, e) =>
+        {
+            var wide = e.NewSize.Width >= 610;
+            art.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
+            heroText.Margin = wide
+                ? new Thickness(25, 22, 264, 24)
+                : new Thickness(20, 23, 20, 23);
+        };
+        page.Children.Add(hero);
+
+        var section = Label("BUILT FOR BIG BROTHER", 11, "#315e8d", true);
+        section.Margin = new Thickness(1, 22, 0, 12);
+        page.Children.Add(section);
+        var areas = new WrapPanel();
+        foreach (var label in new[] { "Sales & Customers", "Stock & Distribution", "Bank & Receivables" })
+        {
+            var chip = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Paint("#d7e4f1"), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(13, 10, 13, 10),
+                Margin = new Thickness(0, 0, 9, 9),
+                Child = Label(label, 12, "#24558a", true)
+            };
+            areas.Children.Add(chip);
+        }
+        page.Children.Add(areas);
+
+        var row = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+        row.Children.Add(HomePanel(
+            "Fresh Milk Distribution",
+            "BIG BROTHER supports daily sales, warehouse stock, purchases and delivery operations across Cambodia.",
+            "#ffffff"));
+        row.Children.Add(HomePanel(
+            "Browser Tips",
+            "Use the shortcut strip above for frequently visited websites. New Tab starts at Home. Minimize keeps pages open; Close ends the tabs.",
+            "#edf6ff"));
+        page.Children.Add(row);
+
+        var note = Label(
+            "BIG BROTHER Browser  •  Private device profile retained  •  Saved shortcuts stay on this computer",
+            10, "#69819c");
+        note.TextWrapping = TextWrapping.Wrap;
+        note.Margin = new Thickness(2, 12, 0, 0);
+        page.Children.Add(note);
+
+        _home.Child = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = page
+        };
+    }
+
     private Button? _urlToggle;
 
     private void SetAddressVisibility()
@@ -383,8 +645,9 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         if (_closed || _owner.WindowState == WindowState.Minimized ||
             !_owner.IsLoaded || _bubbleWindow is null || _browserWindow is null) return;
         var origin = OwnerOrigin(_owner);
-        _bubbleWindow.Left = origin.X + Math.Min(160, Math.Max(8, _owner.ActualWidth - 66));
-        _bubbleWindow.Top = origin.Y + 8;
+        // Align with the BIG BROTHER brand header above the sidebar menu.
+        _bubbleWindow.Left = origin.X + Math.Min(165, Math.Max(8, _owner.ActualWidth - 86));
+        _bubbleWindow.Top = origin.Y + 24;
         MigratePosition();
         var width = Math.Clamp(_browserWindow.Width, 390, Math.Max(390, _owner.ActualWidth - 12));
         var height = Math.Clamp(_browserWindow.Height, 260, Math.Max(260, _owner.ActualHeight - 12));
@@ -713,17 +976,10 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         foreach (var timer in _clickTimers) timer.Stop();
         _clickTimers.Clear();
         _shortcutButtons.Children.Clear();
-        _homeButtons.Children.Clear();
+        // Shortcuts appear once, in the slim top strip. The branded Home page
+        // is intentionally free of duplicate shortcut tiles.
         foreach (var item in GetShortcuts())
-        {
             AddShortcutButton(item);
-            var homeButton = Button(item.Name, "#e9f2fe", "#214c80", 166);
-            homeButton.Height = 43;
-            homeButton.ToolTip = item.Url;
-            homeButton.Margin = new Thickness(0, 0, 9, 9);
-            homeButton.Click += async (_, _) => await NavigateAsync(item.Url);
-            _homeButtons.Children.Add(homeButton);
-        }
     }
 
     private void AddShortcutButton(Shortcut item)
