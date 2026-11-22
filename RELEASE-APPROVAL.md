@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.7
+APPROVED_VERSION=0.2.8
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -41,3 +41,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Full Windows CI passed: 32 pinned accounting module assets, native app compilation, installer packaging and essential files verified (run 44995896855).
 - Only updater/desktop shell code changed; no accounting module, bank, sales, A/R, inventory, COGS or database changes.
 - Publish on development GitHub prerelease channel for user-controlled acceptance test; **not** a stable staff release.
+
+## Approved v0.2.8 — Your Customer return-navigation bug fix
+
+- Reproduced root cause: Add Customer and Customer Map replaced the Dashboard iframe URL without updating the `data-module` marker, causing the regular Your Customer loader to skip returning to it.
+- Desktop-only bundler now sets `frame.dataset.module=ROUTE` in those two adapters before switching their iframe URL.
+- Automated Node regression passed on pinned bundled files for both routes and the normal Dashboard same-module guard.
+- Windows CI full build **44996994404** passed, including all 32 pinned frontend modules, regression test, native compilation, and Velopack installer packaging.
+- No changes to original Cloud/PWA source repositories, accounting database, customer records, permissions, or financial functions.
+- Publish to internal development-update channel for real-PC navigation confirmation, not staff-stable release.
