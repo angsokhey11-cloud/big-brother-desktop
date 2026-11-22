@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.8
+APPROVED_VERSION=0.2.9
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -50,3 +50,11 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Windows CI full build **44996994404** passed, including all 32 pinned frontend modules, regression test, native compilation, and Velopack installer packaging.
 - No changes to original Cloud/PWA source repositories, accounting database, customer records, permissions, or financial functions.
 - Publish to internal development-update channel for real-PC navigation confirmation, not staff-stable release.
+
+## Approved v0.2.9 — Windows input/focus capture safety
+
+- Scope: Desktop native floating browser mouse capture only. No backend, accounting frontend, customer record, Supabase schema, Cloud/PWA, permission, or financial logic changes.
+- Fix: Explicitly release drag/resize pointer capture on Invoice Generator exit, browser minimize, application deactivation, Windows minimization, close, Escape, and release outside the captured element.
+- Root cause candidate: earlier code could clear `_dragging` without `ReleaseMouseCapture()`, potentially leaving another app's mouse clicks intercepted. Full intermittent real-PC behavior requires acceptance testing to confirm.
+- Windows build 44997774478 passed compilation, both frontend/navigation regression and native pointer-capture guard, and full installer packaging.
+- Internal GitHub development prerelease only, not yet staff-approved stable production software.
