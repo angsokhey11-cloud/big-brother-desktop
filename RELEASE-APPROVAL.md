@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.9
+APPROVED_VERSION=0.3.10
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -162,3 +162,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No Cloud/PWA, Local Brain, Supabase, financial records, invoice, inventory, A/R, bank or accounting logic modifications. Preserve the standard non-topmost HWND WebView2 ghost-click architecture.
 - Full development Windows CI run **45016566573** passed: trusted sidebar collapse signaling regression, shortcut, branding and ghost-screen tests, Sales Support navigation, warnings-as-errors .NET 10 compile, bundled accounting frontend snapshots, and Velopack Windows installer artifact upload.
 - Approved for internal consent-controlled GitHub development prerelease only. User PC acceptance required for collapsed/expanded navigation and Windows click isolation; staff production rollout not authorized.
+
+## Approved v0.3.10 — Retire PWA Invoice Browser and restore native Browser access
+
+- User observed the obsolete PWA Invoice Generator Browser icon flashing before desktop injection hid it and then reported the native Browser launcher was missing after v0.3.9 sidebar-collapse handling.
+- Remove the obsolete Invoice Generator in-page browser script injection and delete its unused invoice-browser-bubble-v1.js / .css from the Invoice Generator source. Pin the cleaned frontend revision a152e243d05dd6bdcb0b4e34fe2b103d9fdcec6a in the desktop's 32-module build, preserving the rest of Invoice Generator accounting behavior.
+- Fix native sidebar signal to use only the explicit bb-sidebar-collapsed body class. Never treat a temporarily missing/hidden sidebar element during navigation as a collapsed menu.
+- Keep the native Browser globe hidden when the user intentionally collapses the sidebar, but restore access through the Windows system menu: Alt + Space -> Open BIG BROTHER Browser. This opens the existing multi-tab GlobalBrowserWorkspace, preserving live tabs, saved Telegram chats, private device login/profile, and all browser preferences.
+- No topmost/transparent full-screen overlay and no reintroduction of the native WebView2 ghost-click issue. No Supabase, Cloud Dashboard route, Local Brain, stock, bank, A/R, invoice financial rule or schema changes.
+- Windows development CI run **45018024705** passed: all 32 pinned frontend snapshots, explicit absent-legacy-PWA-browser bundle assertions, native menu and sidebar checks, Sales Support customer navigation, ghost-click/focus regressions, .NET warnings-as-errors compile, and Velopack installer packaging.
+- Approve consent-driven internal development prerelease only. Real PC test must verify Alt+Space browser access when sidebar collapsed and no old globe flash in Invoice Generator.
