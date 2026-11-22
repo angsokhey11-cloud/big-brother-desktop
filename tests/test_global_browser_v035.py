@@ -47,10 +47,14 @@ checks={
         and "public bool BrowserGlobalPositionMigrated" in s,
     "Saved shortcuts strip is collapsible and keeps its toggle visible": 
         "SetShortcutVisibility();" in b
-        and "var shortcutBar = new DockPanel" in b
+        and 'DockPanel.SetDock(shortcutsToggle, Dock.Right);' in b
+        and 'new GridLength(expanded ? 43 : 0)' in b
         and "private void SetShortcutVisibility()" in b
         and "BrowserShortcutsExpanded" in b
         and "public bool BrowserShortcutsExpanded { get; set; } = true;" in s,
+    "Launcher clear of brand headline with full click target":
+        '_bubbleWindow.Top = origin.Y + 87;' in b
+        and 'Width = 78, Height = 77' in b,
     "Home is branded, not a duplicate bookmark grid":
         "private void BuildBrandedHome()" in b
         and "private static Canvas DairyArtwork()" in b

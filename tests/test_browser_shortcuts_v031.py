@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser Workspace v0.3.6 shortcuts, URL and local profile regression."""
+"""Browser Workspace v0.3.7 shortcuts, URL and local profile regression."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
@@ -25,13 +25,29 @@ checks={
         and "_settings.TelegramShortcutName = chosen;" in browser,
     "Telegram Web A bootstrap reloading": "window.history.replaceState(window.history.state" in browser
         and "window.location.reload();" in browser,
+    "No visible shortcut scrollbar; wheel scrolls horizontally":
+        "HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden" in browser
+        and "shortcutRow.PreviewMouseWheel += (_, e) =>" in browser
+        and "ScrollToHorizontalOffset(next);" in browser,
+    "Left mouse drag/drop reorders shortcuts without exposing chat URLs":
+        "DragDrop.DoDragDrop(button," in browser
+        and "new DataObject(ShortcutDragFormat, \"shortcut\")" in browser
+        and "button.Drop += (_, e) =>" in browser
+        and "private void ReorderShortcuts(" in browser,
+    "Default Telegram shortcut can also be reordered":
+        "DefaultShortcutKey" in browser
+        and "ShortcutKey(Shortcut item)" in browser,
+    "User-defined shortcut order persists after restart":
+        "BrowserShortcutOrder = items.Select(ShortcutKey).ToList();" in browser
+        and "public List<string> BrowserShortcutOrder { get; set; } = new();" in store,
     "Shortcut strip collapses without deleting bookmarks": "private void SetShortcutVisibility()" in browser
         and "_shortcutScroller.Visibility = expanded" in browser
+        and "new GridLength(expanded ? 43 : 0)" in browser
         and "SettingsStore.Save(_settings);" in browser,
     "URL bar collapse preserved": "SetAddressVisibility();" in browser
         and "BrowserAddressBarVisible" in browser,
     "Existing persistent WebView2 profile reused": "SettingsStore.BrowserProfile" in browser,
-    "Correct development version": "<Version>0.3.6</Version>" in proj,
+    "Correct development version": "<Version>0.3.7</Version>" in proj,
 }
 for k,v in checks.items():
     assert v,"FAILED "+k

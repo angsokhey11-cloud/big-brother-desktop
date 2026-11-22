@@ -18,6 +18,7 @@ internal sealed class WorkstationSettings
     public Dictionary<string, string> BookmarkTitles { get; set; } = new();
     public bool BrowserAddressBarVisible { get; set; } = true;
     public bool BrowserShortcutsExpanded { get; set; } = true;
+    public List<string> BrowserShortcutOrder { get; set; } = new();
     public bool TelegramShortcutVisible { get; set; } = true;
     public string TelegramShortcutName { get; set; } = "Telegram Web";
     // Browser positions in older versions were relative to the Invoice iframe.

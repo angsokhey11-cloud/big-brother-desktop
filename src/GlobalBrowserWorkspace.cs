@@ -26,6 +26,8 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
 {
     private const string TelegramUrl = "https://web.telegram.org/";
     private const int MaxTabs = 8;
+    private const string ShortcutDragFormat = "BIGBROTHER_BROWSER_SHORTCUT_REORDER_V1";
+    private const string DefaultShortcutKey = "builtin:telegram-web";
     private readonly Window _owner;
     private readonly WorkstationSettings _settings;
     private Window? _bubbleWindow;
@@ -40,6 +42,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private readonly TextBlock _status = new();
     private readonly List<BrowserTab> _tabs = new();
     private readonly List<DispatcherTimer> _clickTimers = new();
+    private string? _draggingShortcutKey;
     private Task<CoreWebView2Environment>? _environmentTask;
     private BrowserTab? _active;
     private RowDefinition? _addressRowDefinition;
@@ -252,6 +255,21 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         newTab.Click += (_, _) => CreateTab();
         DockPanel.SetDock(newTab, Dock.Right);
         tabsRow.Children.Add(newTab);
+
+        // This toggle is intentionally in the always-visible tab row, so
+        // collapsing shortcuts reclaims the ENTIRE row's vertical space.
+        var shortcutsToggle = Button("Shortcuts ▴", "#e4eefb", "#245b95", 106);
+        shortcutsToggle.ToolTip = "Show or hide the saved website shortcut strip";
+        shortcutsToggle.Click += (_, _) =>
+        {
+            _settings.BrowserShortcutsExpanded = !_settings.BrowserShortcutsExpanded;
+            SetShortcutVisibility();
+            SettingsStore.Save(_settings);
+        };
+        DockPanel.SetDock(shortcutsToggle, Dock.Right);
+        tabsRow.Children.Add(shortcutsToggle);
+        _shortcutToggle = shortcutsToggle;
+
         var tabScroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -328,37 +346,28 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         urlRow.Children.Add(save);
         SetAddressVisibility();
 
-        var shortcutBar = new DockPanel
-        {
-            LastChildFill = true,
-            Background = Paint("#f4f7fc"),
-            Margin = new Thickness(8, 1, 8, 1)
-        };
-        // The toggle remains visible while collapsed; only the saved website
-        // buttons disappear. It is separate from the Home page content.
-        var shortcutsToggle = Button("Shortcuts ▴", "#e4eefb", "#245b95", 106);
-        shortcutsToggle.ToolTip = "Show or hide the saved website shortcut strip";
-        shortcutsToggle.Click += (_, _) =>
-        {
-            _settings.BrowserShortcutsExpanded = !_settings.BrowserShortcutsExpanded;
-            SetShortcutVisibility();
-            SettingsStore.Save(_settings);
-        };
-        DockPanel.SetDock(shortcutsToggle, Dock.Left);
-        shortcutBar.Children.Add(shortcutsToggle);
-        _shortcutToggle = shortcutsToggle;
         var shortcutRow = new ScrollViewer
         {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            // Hidden, not Disabled: mouse-wheel horizontal scrolling works,
+            // but the distracting scrollbar never consumes an extra row.
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Background = Paint("#f4f7fc"),
-            Margin = new Thickness(4, 1, 0, 1),
-            Content = _shortcutButtons
+            Margin = new Thickness(8, 1, 8, 1),
+            Content = _shortcutButtons,
+            ToolTip = "Mouse wheel: scroll shortcuts horizontally • Hold and drag: rearrange"
+        };
+        shortcutRow.PreviewMouseWheel += (_, e) =>
+        {
+            if (shortcutRow.ScrollableWidth <= 0) return;
+            var next = Math.Clamp(shortcutRow.HorizontalOffset -
+                (e.Delta / 120.0) * 96.0, 0, shortcutRow.ScrollableWidth);
+            shortcutRow.ScrollToHorizontalOffset(next);
+            e.Handled = true;
         };
         _shortcutScroller = shortcutRow;
-        shortcutBar.Children.Add(shortcutRow);
-        Grid.SetRow(shortcutBar, 3);
-        _layout.Children.Add(shortcutBar);
+        Grid.SetRow(shortcutRow, 3);
+        _layout.Children.Add(shortcutRow);
         SetShortcutVisibility();
 
         BuildBrandedHome();
@@ -645,7 +654,9 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         var expanded = _settings.BrowserShortcutsExpanded;
         _shortcutScroller.Visibility = expanded
             ? Visibility.Visible : Visibility.Collapsed;
-        _shortcutRowDefinition.Height = new GridLength(expanded ? 43 : 35);
+        // Fully collapse to zero; the WebView2/Home star row grows to
+        // occupy the freed space, without leaving an empty shortcuts band.
+        _shortcutRowDefinition.Height = new GridLength(expanded ? 43 : 0);
         _shortcutToggle.Content = expanded ? "Shortcuts ▴" : "Shortcuts ▾";
         _shortcutToggle.ToolTip = expanded
             ? "Hide saved website shortcuts" : "Show saved website shortcuts";
@@ -685,8 +696,11 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             !_owner.IsLoaded || _bubbleWindow is null || _browserWindow is null) return;
         var origin = OwnerOrigin(_owner);
         // Align with the BIG BROTHER brand header above the sidebar menu.
+        // Separate the globe/Browser label from the BIG BROTHER brand name.
+        // Keep its entire 78px click target within the right edge of the
+        // dark sidebar, below the headline, and above the main navigation.
         _bubbleWindow.Left = origin.X + Math.Min(165, Math.Max(8, _owner.ActualWidth - 86));
-        _bubbleWindow.Top = origin.Y + 24;
+        _bubbleWindow.Top = origin.Y + 87;
         MigratePosition();
         var width = Math.Clamp(_browserWindow.Width, 390, Math.Max(390, _owner.ActualWidth - 12));
         var height = Math.Clamp(_browserWindow.Height, 260, Math.Max(260, _owner.ActualHeight - 12));
@@ -993,6 +1007,9 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         _status.Text = "Navigating to " + target.Host + "…";
     }
 
+    private static string ShortcutKey(Shortcut item) =>
+        item.IsBuiltIn ? DefaultShortcutKey : item.Url;
+
     private List<Shortcut> GetShortcuts()
     {
         var result = new List<Shortcut>();
@@ -1007,7 +1024,46 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
                 !string.IsNullOrWhiteSpace(saved) ? saved : uri.Host;
             result.Add(new Shortcut(name, uri.AbsoluteUri, false));
         }
-        return result;
+
+        // Upgrade-friendly: older users have no saved ordering. A removed or
+        // renamed shortcut never corrupts order; newly saved links appear at
+        // the end of any user-defined order without resetting it.
+        var preferred = _settings.BrowserShortcutOrder ?? new List<string>();
+        if (preferred.Count == 0) return result;
+        var ordered = new List<Shortcut>();
+        foreach (var key in preferred)
+        {
+            var found = result.FirstOrDefault(item =>
+                string.Equals(ShortcutKey(item), key, StringComparison.Ordinal));
+            if (found is not null && !ordered.Contains(found))
+                ordered.Add(found);
+        }
+        foreach (var remaining in result)
+            if (!ordered.Contains(remaining)) ordered.Add(remaining);
+        return ordered;
+    }
+
+    private void ReorderShortcuts(string sourceKey, string destinationKey)
+    {
+        var items = GetShortcuts();
+        var from = items.FindIndex(item =>
+            string.Equals(ShortcutKey(item), sourceKey, StringComparison.Ordinal));
+        var to = items.FindIndex(item =>
+            string.Equals(ShortcutKey(item), destinationKey, StringComparison.Ordinal));
+        if (from < 0 || to < 0 || from == to) return;
+        var moving = items[from];
+        items.RemoveAt(from);
+        items.Insert(to, moving);
+        _settings.BrowserShortcutOrder = items.Select(ShortcutKey).ToList();
+        SettingsStore.Save(_settings);
+        // Do not remove any dragged WPF Buttons inside an active native
+        // DoDragDrop call. Rebuild after the drag gesture has unwound.
+        _owner.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closed) return;
+            RefreshShortcuts();
+            _status.Text = "Shortcut order saved";
+        }), DispatcherPriority.ContextIdle);
     }
 
     private void RefreshShortcuts()
@@ -1024,7 +1080,8 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private void AddShortcutButton(Shortcut item)
     {
         var button = Button(item.Name, "#e3f0fe", "#23558a", 166);
-        button.ToolTip = "Click to open • triple-click to rename • right-click to manage\n" + item.Url;
+        button.ToolTip = "Click: open • triple-click: rename • left-hold and drag: reorder • right-click: manage\n" +
+            item.Url;
         var clicks = 0;
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
         _clickTimers.Add(timer);
@@ -1034,8 +1091,81 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             clicks = 0;
             await NavigateAsync(item.Url);
         };
+
+        // WPF's standard drag/drop owns pointer capture only for this gesture.
+        // Never create a global overlay or manually capture the mouse (our
+        // v0.3.0 ghost-screen fix relies on normal HWND focus behavior).
+        Point? startPoint = null;
+        var suppressClick = false;
+        button.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            startPoint = e.GetPosition(button);
+        };
+        button.PreviewMouseLeftButtonUp += (_, _) => startPoint = null;
+        button.PreviewMouseMove += (_, e) =>
+        {
+            if (startPoint is null || e.LeftButton != MouseButtonState.Pressed) return;
+            var moved = e.GetPosition(button) - startPoint.Value;
+            if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            startPoint = null;
+            timer.Stop();
+            clicks = 0;
+            suppressClick = true;
+            _draggingShortcutKey = ShortcutKey(item);
+            try
+            {
+                // The drag payload carries no URL/chat identifier. Only our
+                // temporary in-process source key resolves the actual item.
+                DragDrop.DoDragDrop(button,
+                    new DataObject(ShortcutDragFormat, "shortcut"),
+                    DragDropEffects.Move);
+            }
+            finally
+            {
+                _draggingShortcutKey = null;
+                button.Dispatcher.BeginInvoke(new Action(() =>
+                    suppressClick = false), DispatcherPriority.ContextIdle);
+            }
+        };
+
+        button.AllowDrop = true;
+        button.DragOver += (_, e) =>
+        {
+            var source = _draggingShortcutKey;
+            if (e.Data.GetDataPresent(ShortcutDragFormat) && source is not null &&
+                !string.Equals(source, ShortcutKey(item), StringComparison.Ordinal))
+            {
+                e.Effects = DragDropEffects.Move;
+                if (_shortcutScroller is not null)
+                {
+                    var p = e.GetPosition(_shortcutScroller);
+                    if (p.X < 28) _shortcutScroller.ScrollToHorizontalOffset(
+                        _shortcutScroller.HorizontalOffset - 18);
+                    else if (p.X > _shortcutScroller.ActualWidth - 28)
+                        _shortcutScroller.ScrollToHorizontalOffset(
+                            _shortcutScroller.HorizontalOffset + 18);
+                }
+            }
+            else e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        };
+        button.Drop += (_, e) =>
+        {
+            if (e.Data.GetDataPresent(ShortcutDragFormat) &&
+                _draggingShortcutKey is not null)
+            {
+                ReorderShortcuts(_draggingShortcutKey, ShortcutKey(item));
+                e.Effects = DragDropEffects.Move;
+            }
+            e.Handled = true;
+        };
+
         button.Click += (_, _) =>
         {
+            if (suppressClick) return;
             timer.Stop();
             clicks++;
             if (clicks >= 3)

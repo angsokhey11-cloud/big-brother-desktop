@@ -106,6 +106,12 @@ jobs:
           python tests/test_global_browser_v035.py
           if ($LASTEXITCODE -ne 0) { throw "Global browser regression failed" }
 
+      - name: Verify desktop display name without changing update identity
+        shell: pwsh
+        run: |
+          python tests/test_desktop_display_name.py
+          if ($LASTEXITCODE -ne 0) { throw "Desktop display naming regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
@@ -179,7 +185,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion $env:VERSION --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion $env:VERSION --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw 'Velopack packaging failed' }
           if (-not (Test-Path 'releases/releases.dev.json')) { throw 'Velopack dev feed missing' }
           if (-not (Get-ChildItem releases -Filter '*-full.nupkg')) { throw 'Velopack full package missing' }
@@ -195,7 +201,7 @@ jobs:
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
           $env:VPK_TOKEN = $env:GH_TOKEN
-          vpk upload github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --channel dev --outputDir releases --token $env:GH_TOKEN --publish --pre --tag $env:TAG --targetCommitish $env:GITHUB_SHA --releaseName "BIG BROTHER Desktop $env:VERSION (Development)"
+          vpk upload github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --channel dev --outputDir releases --token $env:GH_TOKEN --publish --pre --tag $env:TAG --targetCommitish $env:GITHUB_SHA --releaseName "BIG BROTHER Desktop $env:VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Development release upload failed' }
           gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json url,isDraft,isPrerelease,assets
           if ($LASTEXITCODE -ne 0) { throw 'Published GitHub release not visible' }
