@@ -52,9 +52,10 @@ checks={
         and "private void SetShortcutVisibility()" in b
         and "BrowserShortcutsExpanded" in b
         and "public bool BrowserShortcutsExpanded { get; set; } = true;" in s,
-    "Launcher clear of brand headline with full click target":
-        '_bubbleWindow.Top = origin.Y + 87;' in b
-        and 'Width = 78, Height = 77' in b,
+    "Globe sits in top-right without covering actual brand lettering":
+        '_bubbleWindow.Left = origin.X + Math.Min(182' in b
+        and '_bubbleWindow.Top = origin.Y + 25;' in b
+        and 'Width = 66, Height = 77' in b,
     "Home is branded, not a duplicate bookmark grid":
         "private void BuildBrandedHome()" in b
         and "private static Canvas DairyArtwork()" in b
