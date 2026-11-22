@@ -17,7 +17,7 @@ checks = {
     "No Save/Rename controls in shortcut row": 'var star = MakeButton(' not in shell
         and 'var rename = MakeButton(' not in shell
         and 'var remove = MakeButton("×"' not in shell,
-    "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(name, "#e3f0fe"' in shell
+    "Existing saved addresses shown as clickable buttons": 'var button = MakeButton(item.Name, "#e3f0fe"' in shell
         and '_shortcutButtons.Children.Add(button);' in shell,
     "No ComboBox for saved websites": 'ComboBox _savedWebsites' not in shell,
     "Shortcut row scrolls horizontally": 'HorizontalScrollBarVisibility = ScrollBarVisibility.Auto' in shell,
@@ -25,7 +25,7 @@ checks = {
         and 'await NavigateBrowserAsync(item.Url);' in shell
         and 'TimeSpan.FromMilliseconds(650)' in shell,
     "Shortcut has right-click rename/remove menu": 'button.ContextMenu = menu;' in shell
-        and 'RemoveBookmark(item);' in shell,
+        and 'RemoveBookmark(item, isBuiltIn);' in shell,
     "Full Telegram chat URL is saved ONLY on explicit Save": 'var url = current.AbsoluteUri;' in shell
         and 'var liveUrl = _browserView.CoreWebView2?.Source;' in shell,
     "Auto-persisted browser restore does not save tokens": 'SettingsStore.RememberableUrl(current.AbsoluteUri)' in shell,
