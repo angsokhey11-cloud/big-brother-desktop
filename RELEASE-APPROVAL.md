@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.1
+APPROVED_VERSION=0.3.2
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -78,3 +78,14 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Protect native shortcut dialogs from unexpected owner-window hiding without restoring an always-on-top or full-desktop browser overlay.
 - Full Windows development CI run **45000908131** passed: v0.3.1 browser regression, native window focus/ghost-click guards, Sales Support navigation regression, .NET 10 warnings-as-errors compilation, 32 pinned module bundle, Velopack packaging and Setup.exe artifact upload.
 - No Cloud/PWA, Local Brain, Supabase schema, bank, sales, inventory, A/R, invoice or other accounting rules changed. Released only to the approved user-controlled GitHub prerelease channel; not staff production software.
+
+## Approved v0.3.2 — Clickable browser shortcuts with full Telegram chat URLs
+
+- Replace the saved-websites dropdown with a horizontally scrollable strip of directly clickable named buttons beside Telegram Web. The original saved bookmark list and labels are retained, and saved items are loaded from the same user profile. New buttons show immediately after pressing Save.
+- Move Save to the far right of the browser URL row beside Go. Keep URL collapse/expand setting and live SourceChanged address display.
+- A single click on a shortcut opens it; three quick clicks rename the selected shortcut without accidentally navigating on earlier clicks. Right-click provides Rename and Remove actions. Save no longer toggles or deletes an existing shortcut.
+- A shortcut explicitly saved by the user now retains the complete current WebView2 URL, including query and fragment, to allow Telegram Web deep links to a particular chat. Sensitive URL parameters are only persisted by the explicit Save action; automatic BrowserUrl session restore remains sanitized to path-only. As full URLs may contain private chat identifiers, profile settings remain local to the device and should only be used on trusted computers.
+- Existing pre-v0.3.2 shortcuts remain compatible but cannot recover a chat fragment that previous versions already discarded; re-save specific chat after update.
+- Preserve v0.3.0 standard WebView2 HWND ghost-click isolation, Telegram persistent device profile, and all accounting module/backend boundaries. No Cloud/PWA, Local Brain, Supabase, invoice, bank, stock, A/R or accounting schema changes.
+- Development Windows CI **45002083544** passed: all static browser and focus safety regressions, Sales Support navigation regression, warnings-as-errors Windows build, 32 pinned frontend bundles, Velopack installer packaging and uploaded dev installer artifact.
+- Release only to the consent-driven internal development prerelease channel, not to production staff.
