@@ -6,7 +6,7 @@
   "modules": [
     {
       "name": "big-brother-invoice-generator",
-      "sha": "babe726cca0fdc7010c212f89fdb46219934cdeb"
+      "sha": "a152e243d05dd6bdcb0b4e34fe2b103d9fdcec6a"
     },
     {
       "name": "big-brother-invoice-reversal",

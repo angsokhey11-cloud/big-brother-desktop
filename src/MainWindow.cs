@@ -57,6 +57,7 @@ internal sealed class MainWindow : Window
         "BIG BROTHER Desktop • v" +
         (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "development");
     private const int LocalUpdateMenuCommand = 0x1E10;
+    private const int OpenNativeBrowserMenuCommand = 0x1E20;
     private const int WmSysCommand = 0x0112;
     private const uint MfSeparator = 0x0800;
     private const uint MfString = 0x0000;
@@ -117,10 +118,10 @@ internal sealed class MainWindow : Window
           window.__bbNativeSidebarVisibilityV1=true;
           var previous=null;
           function report(){
-            var side=document.querySelector('.sidebar');
             if(!document.body)return;
-            var hidden=!side||getComputedStyle(side).display==='none'||
-              side.getBoundingClientRect().width<1;
+            // Only the real Dashboard collapse button should hide the globe.
+            // Missing sidebar elements during initialization are not collapse.
+            var hidden=document.body.classList.contains('bb-sidebar-collapsed');
             if(hidden===previous)return;
             previous=hidden;
             try{
@@ -483,6 +484,9 @@ internal sealed class MainWindow : Window
         if (menu != IntPtr.Zero)
         {
             AppendMenu(menu, MfSeparator, 0, null);
+            AppendMenu(menu, MfString, (nuint)OpenNativeBrowserMenuCommand,
+                "Open BIG BROTHER Browser");
+            AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, (nuint)UpdateSystemMenuCommand,
                 "Check BIG BROTHER Desktop Updates");
             AppendMenu(menu, MfString, (nuint)LocalUpdateMenuCommand,
@@ -496,7 +500,14 @@ internal sealed class MainWindow : Window
         IntPtr lParam, ref bool handled)
     {
         if (msg == WmSysCommand &&
-            ((wParam.ToInt64() & 0xFFF0) == UpdateSystemMenuCommand))
+            ((wParam.ToInt64() & 0xFFF0) == OpenNativeBrowserMenuCommand))
+        {
+            handled = true;
+            Dispatcher.BeginInvoke(new Action(_globalBrowser.OpenFromDesktopMenu),
+                DispatcherPriority.ContextIdle);
+        }
+        else if (msg == WmSysCommand &&
+                 ((wParam.ToInt64() & 0xFFF0) == UpdateSystemMenuCommand))
         {
             handled = true;
             _ = CheckUpdatesAsync();

@@ -17,10 +17,14 @@ checks={
         "new MutationObserver(report).observe(document.body" in main
         and "attributeFilter:['class']" in main
         and "document.addEventListener('DOMContentLoaded',start" in main,
-    "Reports actual sidebar display state, not unrelated UI":
-        "document.querySelector('.sidebar')" in main
-        and "getComputedStyle(side).display==='none'" in main
-        and "side.getBoundingClientRect().width<1" in main,
+    "Only explicit sidebar collapse hides Browser launcher":
+        "document.body.classList.contains('bb-sidebar-collapsed')" in main
+        and "getComputedStyle(side).display==='none'" not in main,
+    "Native system menu can reopen Browser without the sidebar":
+        '"Open BIG BROTHER Browser"' in main
+        and "OpenNativeBrowserMenuCommand" in main
+        and "_globalBrowser.OpenFromDesktopMenu" in main
+        and "public void OpenFromDesktopMenu()" in browser,
     "Only state, never private accounting data, enters native layer":
         "'bbDesktopSidebarCollapsedV1:'+(hidden?'1':'0')" in main,
     "Message listener validates exact trusted Dashboard origin and page":
