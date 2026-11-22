@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-invoice=root/"publish/web/big-brother-invoice-generator"
+invoice=root/"build/web/big-brother-invoice-generator"
 index=invoice/"index.html"
 modules=json.loads((root/"config/modules.lock.json").read_text(encoding="utf-8"))
 main=(root/"src/MainWindow.cs").read_text(encoding="utf-8")
