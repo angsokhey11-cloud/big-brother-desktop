@@ -35,8 +35,8 @@ internal sealed class MainWindow : Window
     private readonly Border _browserPanel = new();
     private readonly Button _bubble = new();
     private readonly TextBox _browserAddress = new();
-    private readonly ComboBox _savedWebsites = new();
-    private bool _refreshingBookmarks;
+    private readonly StackPanel _shortcutButtons = new() { Orientation = Orientation.Horizontal };
+    private readonly List<DispatcherTimer> _shortcutClickTimers = new();
     private readonly TextBlock _notice = new();
     private readonly TextBlock _workspaceStatus = new();
     private readonly Grid _body = new();
@@ -583,7 +583,7 @@ internal sealed class MainWindow : Window
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
         var browserAddressGridRow = new RowDefinition { Height = new GridLength(43) };
         panelGrid.RowDefinitions.Add(browserAddressGridRow);
-        panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
+        panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(49) });
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         panelGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
         _browserPanel.Child = panelGrid;
@@ -623,6 +623,7 @@ internal sealed class MainWindow : Window
         addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         addressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetRow(addressRow, 1);
         panelGrid.Children.Add(addressRow);
@@ -674,6 +675,13 @@ internal sealed class MainWindow : Window
         Grid.SetColumn(go, 4);
         addressRow.Children.Add(go);
 
+        // Save lives at the far end of the URL bar, not in the shortcut row.
+        var saveUrl = MakeButton("☆ Save", "#e3f0fe", "#23558a", 11, 86);
+        saveUrl.ToolTip = "Save the exact current page or Telegram chat as a shortcut";
+        saveUrl.Click += (_, _) => BookmarkCurrent();
+        Grid.SetColumn(saveUrl, 5);
+        addressRow.Children.Add(saveUrl);
+
         var tools = new DockPanel
         {
             Background = Paint("#f4f7fc"),
@@ -688,37 +696,17 @@ internal sealed class MainWindow : Window
         tools.Children.Add(telegram);
         DockPanel.SetDock(telegram, Dock.Left);
 
-        var star = MakeButton("☆  Save", "#e3f0fe", "#23558a", 11, 84);
-        star.ToolTip = "Save the currently open webpage as a named shortcut";
-        star.Click += (_, _) => BookmarkCurrent();
-        tools.Children.Add(star);
-        DockPanel.SetDock(star, Dock.Left);
-
-        var rename = MakeButton("✎ Rename", "#e3f0fe", "#23558a", 11, 92);
-        rename.ToolTip = "Rename the selected saved website";
-        rename.Click += (_, _) => RenameBookmark();
-        tools.Children.Add(rename);
-        DockPanel.SetDock(rename, Dock.Left);
-
-        var remove = MakeButton("×", "#e3f0fe", "#23558a", 14, 34);
-        remove.ToolTip = "Remove the selected saved website";
-        remove.Click += (_, _) => RemoveBookmark();
-        tools.Children.Add(remove);
-        DockPanel.SetDock(remove, Dock.Left);
-
-        _savedWebsites.MinWidth = 75;
-        _savedWebsites.MaxWidth = 300;
-        _savedWebsites.Height = 32;
-        _savedWebsites.Background = Brushes.White;
-        _savedWebsites.Foreground = Paint("#234a78");
-        _savedWebsites.FontSize = 11;
-        _savedWebsites.VerticalAlignment = VerticalAlignment.Center;
-        _savedWebsites.SelectionChanged += async (_, _) =>
+        // New bookmarks appear as their own scrollable buttons beside Telegram.
+        // The row contains shortcuts only: no Save, Rename, or dropdown controls.
+        var shortcutScroller = new ScrollViewer
         {
-            if (!_refreshingBookmarks && _savedWebsites.SelectedItem is BookmarkItem item)
-                await NavigateBrowserAsync(item.Url);
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Background = Brushes.Transparent,
+            Content = _shortcutButtons
         };
-        tools.Children.Add(_savedWebsites);
+        tools.Children.Add(shortcutScroller);
         RefreshBookmarks();
 
         _browserView.DefaultBackgroundColor = System.Drawing.Color.White;
@@ -778,26 +766,66 @@ internal sealed class MainWindow : Window
         public override string ToString() => Name;
     }
 
-    private void RefreshBookmarks(string? selectUrl = null)
+    private void RefreshBookmarks()
     {
-        _refreshingBookmarks = true;
-        try
+        // The old URL list is kept for upgrade compatibility, but each website
+        // is now rendered as a directly clickable button (not a ComboBox option).
+        foreach (var timer in _shortcutClickTimers) timer.Stop();
+        _shortcutClickTimers.Clear();
+        _shortcutButtons.Children.Clear();
+
+        foreach (var savedUrl in (_preferences.Bookmarks ?? new List<string>()).Take(15))
         {
-            _savedWebsites.Items.Clear();
-            foreach (var url in (_preferences.Bookmarks ?? new List<string>()).Take(15))
+            if (!SettingsStore.TryWebAddress(savedUrl, out var uri)) continue;
+            var name = _preferences.BookmarkTitles != null &&
+                _preferences.BookmarkTitles.TryGetValue(savedUrl, out var savedName) &&
+                !string.IsNullOrWhiteSpace(savedName)
+                ? savedName : uri.Host;
+            var item = new BookmarkItem(savedUrl, name);
+            var button = MakeButton(name, "#e3f0fe", "#23558a", 11);
+            button.MinWidth = 76;
+            button.MaxWidth = 190;
+            button.ToolTip = "Click to open • triple-click to rename • right-click to manage\n" +
+                uri.AbsoluteUri;
+            button.Content = new TextBlock
             {
-                if (!SettingsStore.TryWebAddress(url, out var uri)) continue;
-                var title = _preferences.BookmarkTitles != null &&
-                    _preferences.BookmarkTitles.TryGetValue(url, out var savedName)
-                    ? savedName : uri.Host;
-                var item = new BookmarkItem(uri.AbsoluteUri, title);
-                _savedWebsites.Items.Add(item);
-                if (string.Equals(selectUrl, url, StringComparison.OrdinalIgnoreCase))
-                    _savedWebsites.SelectedItem = item;
-            }
-            if (_savedWebsites.SelectedItem is null) _savedWebsites.Text = "Saved websites";
+                Text = name, TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Defer a normal click briefly so three quick clicks can rename
+            // WITHOUT opening the website on click one or two.
+            var pendingClicks = 0;
+            var clickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
+            _shortcutClickTimers.Add(clickTimer);
+            clickTimer.Tick += async (_, _) =>
+            {
+                clickTimer.Stop();
+                pendingClicks = 0;
+                await NavigateBrowserAsync(item.Url);
+            };
+            button.Click += (_, _) =>
+            {
+                clickTimer.Stop();
+                pendingClicks++;
+                if (pendingClicks >= 3)
+                {
+                    pendingClicks = 0;
+                    RenameBookmark(item);
+                }
+                else clickTimer.Start();
+            };
+
+            var menu = new ContextMenu();
+            var rename = new MenuItem { Header = "Rename shortcut (triple-click)" };
+            rename.Click += (_, _) => { clickTimer.Stop(); RenameBookmark(item); };
+            menu.Items.Add(rename);
+            var remove = new MenuItem { Header = "Remove shortcut" };
+            remove.Click += (_, _) => { clickTimer.Stop(); RemoveBookmark(item); };
+            menu.Items.Add(remove);
+            button.ContextMenu = menu;
+            _shortcutButtons.Children.Add(button);
         }
-        finally { _refreshingBookmarks = false; }
     }
 
     private bool? ShowBrowserDialog(Window dialog)
@@ -872,7 +900,10 @@ internal sealed class MainWindow : Window
             _notice.Text = "Open a website first, then press Save";
             return;
         }
-        var url = SettingsStore.RememberableUrl(current.AbsoluteUri);
+        // Explicit shortcuts retain the FULL live address, including the
+        // Telegram chat path, query string, and #fragment. Automatic browser
+        // session restore still uses a sanitized URL.
+        var url = current.AbsoluteUri;
         _preferences.Bookmarks ??= new List<string>();
         _preferences.BookmarkTitles ??= new Dictionary<string, string>();
         var name = _preferences.BookmarkTitles.TryGetValue(url, out var existing)
@@ -883,38 +914,28 @@ internal sealed class MainWindow : Window
         if (chosen is null) return;
 
         _preferences.Bookmarks.RemoveAll(x => string.Equals(x, url,
-            StringComparison.OrdinalIgnoreCase));
+            StringComparison.Ordinal));
         _preferences.Bookmarks.Insert(0, url);
         _preferences.Bookmarks = _preferences.Bookmarks.Take(15).ToList();
         _preferences.BookmarkTitles[url] = chosen;
-        RefreshBookmarks(url);
+        RefreshBookmarks();
         SettingsStore.Save(_preferences);
         _notice.Text = "Saved shortcut: " + chosen;
     }
 
-    private void RenameBookmark()
+    private void RenameBookmark(BookmarkItem item)
     {
-        if (_savedWebsites.SelectedItem is not BookmarkItem item)
-        {
-            _notice.Text = "Select a saved website before renaming";
-            return;
-        }
         var newName = PromptBookmarkName("Rename website shortcut", item.Name);
         if (newName is null) return;
         _preferences.BookmarkTitles ??= new Dictionary<string, string>();
         _preferences.BookmarkTitles[item.Url] = newName;
-        RefreshBookmarks(item.Url);
+        RefreshBookmarks();
         SettingsStore.Save(_preferences);
         _notice.Text = "Renamed shortcut to " + newName;
     }
 
-    private void RemoveBookmark()
+    private void RemoveBookmark(BookmarkItem item)
     {
-        if (_savedWebsites.SelectedItem is not BookmarkItem item)
-        {
-            _notice.Text = "Select a saved website to remove";
-            return;
-        }
         var confirmation = new Window
         {
             Title = "Remove website shortcut",
@@ -944,7 +965,7 @@ internal sealed class MainWindow : Window
         confirmation.Content = layout;
         if (ShowBrowserDialog(confirmation) != true) return;
         _preferences.Bookmarks?.RemoveAll(x => string.Equals(x, item.Url,
-            StringComparison.OrdinalIgnoreCase));
+            StringComparison.Ordinal));
         _preferences.BookmarkTitles?.Remove(item.Url);
         RefreshBookmarks();
         SettingsStore.Save(_preferences);
