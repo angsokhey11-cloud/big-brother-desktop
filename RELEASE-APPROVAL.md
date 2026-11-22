@@ -14,3 +14,5 @@ This approval is **for the internal BIG BROTHER Desktop development channel only
 - Never republish or overwrite an existing tagged version.
 
 To approve the next version, bump the app/pack version, validate CI, update `APPROVED_VERSION`, then deliberately advance `desktop-release` to that reviewed commit.
+
+Deployment approval: publish only v0.2.4 as a GitHub development prerelease after successful CI packaging. Keep future versions gated on deliberate release-branch updates.
