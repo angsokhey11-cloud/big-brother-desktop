@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static safety regression for BIG BROTHER Desktop v0.3.3 browser workspace.
+"""Static safety regression for BIG BROTHER Desktop v0.3.4 browser workspace.
 
 Checks the browser-specific source contract; Windows UI acceptance is separate.
 """
@@ -41,12 +41,16 @@ checks = {
     "Default Telegram shortcut can be renamed": '_preferences.TelegramShortcutName = newName;' in shell
         and 'RenameBookmark(item, isBuiltIn);' in shell,
     "Default shortcut visibility persists": 'public bool TelegramShortcutVisible { get; set; } = true;' in store,
-    "Telegram chat hash navigation avoids WebView2 reload": 'url.Fragment.Length > 0' in shell
-        and 'await web.ExecuteScriptAsync("window.location.hash = " +' in shell
-        and 'JsonSerializer.Serialize(url.Fragment)' in shell
-        and 'GetLeftPart(UriPartial.Query)' in shell,
+    "Telegram Web A chat hash is loaded at startup rather than merely changed": 'window.history.replaceState(window.history.state' in shell
+        and 'window.location.reload();' in shell
+        and 'JsonSerializer.Serialize(url.AbsoluteUri)' in shell
+        and 'GetLeftPart(UriPartial.Query)' in shell
+        and 'captureInitialLocation' in shell,
+    "Only Telegram Web chat routes use forced reload": 'var isTelegramChat = string.Equals(url.Host, "web.telegram.org"' in shell
+        and 'url.AbsolutePath.StartsWith("/a/"' in shell
+        and 'Regex.IsMatch(url.Fragment' in shell,
     "Non-hash and cross-site navigation still uses WebView2": 'web.Navigate(url.AbsoluteUri);' in shell,
-    "Next release version": '<Version>0.3.3</Version>' in project,
+    "Next release version": '<Version>0.3.4</Version>' in project,
 }
 for label, passed in checks.items():
     assert passed, "FAILED " + label
