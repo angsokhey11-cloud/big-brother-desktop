@@ -44,3 +44,11 @@ Not a stable production release; full Cloud authentication and accounting workfl
 - Release captured mouse even if an old drag flag has already been cleared, handle mouse-up outside the captured element, and only mark drag active when capture succeeds.
 - Added Windows CI capture-cleanup regression guard. Intermittent PC input behavior still requires a real-device acceptance test.
 - No accounting functions, Cloud/PWA files, customer data, or Supabase migrations changed.
+
+## BIG BROTHER Desktop v0.3.0 — Restore normal Windows mouse interaction
+
+- Replaced both composition-mode WPF WebView2 controls with standard HWND-hosted WebView2 to avoid the reported invisible composition/ghost layer that can prevent clicks on other Windows applications.
+- Invoice Generator native Telegram browser retained in two small, non-topmost, owned Windows: an invoice-only bubble and an invoice-bounded browser panel, not a full-screen overlay.
+- Owned browser windows hide on app deactivation or minimization; no invisible full-screen WPF/Win32 layer is created.
+- Retains existing device-specific WorkspaceProfile/BrowserProfile data directories and GitHub auto-update support; no Supabase, accounting, Cloud/PWA, or other function code changed.
+- Windows CI and actual PC tests needed for edge cases: restoring focus, clicking Excel while Desktop is open, Telegram session after minimize, dragging/resizing within invoice.

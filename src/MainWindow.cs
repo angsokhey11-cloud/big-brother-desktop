@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
@@ -28,8 +29,8 @@ internal sealed class MainWindow : Window
     private const string TelegramUrl = "https://web.telegram.org/";
 
     private readonly WorkstationSettings _preferences = SettingsStore.Load();
-    private readonly WebView2CompositionControl _workspaceView = new();
-    private readonly WebView2CompositionControl _browserView = new();
+    private readonly WebView2 _workspaceView = new();
+    private readonly WebView2 _browserView = new();
     private readonly Canvas _overlay = new();
     private readonly Border _browserPanel = new();
     private readonly Button _bubble = new();
@@ -38,6 +39,8 @@ internal sealed class MainWindow : Window
     private readonly TextBlock _notice = new();
     private readonly TextBlock _workspaceStatus = new();
     private readonly Grid _body = new();
+    private Window? _bubbleWindow;
+    private Window? _browserWindow;
 
     private bool _browserReady;
     private bool _browserStarting;
@@ -54,6 +57,13 @@ internal sealed class MainWindow : Window
     private const int WmSysCommand = 0x0112;
     private const uint MfSeparator = 0x0800;
     private const uint MfString = 0x0000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CursorPoint { public int X; public int Y; }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out CursorPoint point);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
@@ -164,13 +174,28 @@ internal sealed class MainWindow : Window
         // Explicit WPF taskbar/title-bar icon; EXE/installer have the same brand.
         Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/big-brother.ico", UriKind.Absolute));
         SourceInitialized += InstallNativeUpdateMenu;
+        SourceInitialized += (_, _) => InitializeNativeBrowserWindows();
+        Activated += (_, _) => Dispatcher.BeginInvoke(
+            new Action(RefreshNativeBrowserWindows), DispatcherPriority.ContextIdle);
+        Deactivated += (_, _) => Dispatcher.BeginInvoke(
+            new Action(HideNativeWindowsIfAnotherAppActive), DispatcherPriority.ContextIdle);
+        LocationChanged += (_, _) => PositionNativeBrowserWindows();
+        SizeChanged += (_, _) => PositionNativeBrowserWindows();
         // Desktop must never retain a browser-panel pointer capture when the
         // user switches to Excel, Chrome, another program, or the taskbar.
         Deactivated += (_, _) => ReleaseBrowserMouseCapture();
         StateChanged += (_, _) =>
         {
             if (WindowState == WindowState.Minimized)
+            {
                 ReleaseBrowserMouseCapture();
+                HideNativeBrowserWindows();
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(new Action(RefreshNativeBrowserWindows),
+                    DispatcherPriority.ContextIdle);
+            }
         };
         PreviewKeyDown += (_, e) =>
         {
@@ -195,8 +220,16 @@ internal sealed class MainWindow : Window
         Closing += (_, _) =>
         {
             ReleaseBrowserMouseCapture();
+            HideNativeBrowserWindows();
             RememberPanel();
             SettingsStore.Save(_preferences);
+        };
+        Closed += (_, _) =>
+        {
+            // The user data directories are not deleted. Only native WebView2
+            // handles are disposed after the application window has closed.
+            _browserView.Dispose();
+            _workspaceView.Dispose();
         };
     }
 
@@ -255,6 +288,7 @@ internal sealed class MainWindow : Window
         // This overlay is physically bounded to the active Invoice Generator
         // iframe, not the global Dashboard or its sidebar.
         _overlay.Background = null;
+        _overlay.IsHitTestVisible = false;
         _overlay.ClipToBounds = true;
         _overlay.HorizontalAlignment = HorizontalAlignment.Left;
         _overlay.VerticalAlignment = VerticalAlignment.Top;
@@ -262,10 +296,133 @@ internal sealed class MainWindow : Window
         _overlay.Height = 1;
         _overlay.Visibility = Visibility.Collapsed;
         _body.Children.Add(_overlay);
-        _overlay.SizeChanged += (_, _) => FitOverlay();
+        _overlay.SizeChanged += (_, _) =>
+        {
+            FitOverlay();
+            RefreshNativeBrowserWindows();
+        };
 
         BuildBrowserPanel();
         BuildBubble();
+    }
+
+    private void InitializeNativeBrowserWindows()
+    {
+        // Standard WebView2 hosts a normal HWND instead of using screen
+        // capture/composition. A small owned window is used only for the
+        // floating browser, and only when Invoice Generator is active.
+        _bubbleWindow = new Window
+        {
+            Owner = this,
+            Content = _bubble,
+            Title = "BIG BROTHER Invoice Browser",
+            Width = _bubble.Width,
+            Height = _bubble.Height,
+            AllowsTransparency = true,
+            Background = Brushes.Transparent,
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost = false
+        };
+        _browserWindow = new Window
+        {
+            Owner = this,
+            Content = _browserPanel,
+            Title = "BIG BROTHER Invoice Browser",
+            Width = _preferences.PanelWidth,
+            Height = _preferences.PanelHeight,
+            Background = Brushes.White,
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost = false
+        };
+
+        _browserWindow.Deactivated += (_, _) =>
+        {
+            ReleaseBrowserMouseCapture();
+            Dispatcher.BeginInvoke(new Action(HideNativeWindowsIfAnotherAppActive),
+                DispatcherPriority.ContextIdle);
+        };
+        _bubbleWindow.Deactivated += (_, _) =>
+            Dispatcher.BeginInvoke(new Action(HideNativeWindowsIfAnotherAppActive),
+                DispatcherPriority.ContextIdle);
+    }
+
+    private void HideNativeBrowserWindows()
+    {
+        if (_bubbleWindow?.IsVisible == true) _bubbleWindow.Hide();
+        if (_browserWindow?.IsVisible == true) _browserWindow.Hide();
+    }
+
+    private void HideNativeWindowsIfAnotherAppActive()
+    {
+        if (IsActive || _browserWindow?.IsActive == true ||
+            _bubbleWindow?.IsActive == true) return;
+        // Native windows are never topmost. Hide both when another program
+        // becomes active; do not leave a ghost layer over other applications.
+        HideNativeBrowserWindows();
+    }
+
+    private Point ScreenPointDip(Point relativeToOverlay)
+    {
+        if (!IsLoaded || !_overlay.IsVisible) return new Point(0, 0);
+        var screen = _overlay.PointToScreen(relativeToOverlay);
+        var source = PresentationSource.FromVisual(this);
+        var fromDevice = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        return fromDevice.Transform(screen);
+    }
+
+    private Point MouseScreenPointDip()
+    {
+        if (!GetCursorPos(out var mouse)) return new Point(0, 0);
+        var source = PresentationSource.FromVisual(this);
+        var fromDevice = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        return fromDevice.Transform(new Point(mouse.X, mouse.Y));
+    }
+
+    private void PositionNativeBrowserWindows()
+    {
+        if (_bubbleWindow is null || _browserWindow is null ||
+            !_invoiceScopeActive || WindowState == WindowState.Minimized ||
+            !_overlay.IsVisible || _overlay.ActualWidth < 180) return;
+        var frameOrigin = ScreenPointDip(new Point(0, 0));
+        _bubbleWindow.Left = frameOrigin.X +
+            _overlay.ActualWidth - _bubble.Width - 18;
+        _bubbleWindow.Top = frameOrigin.Y + 17;
+        _browserWindow.Width = _browserPanel.Width;
+        _browserWindow.Height = _browserPanel.Height;
+        _browserWindow.Left = frameOrigin.X + Canvas.GetLeft(_browserPanel);
+        _browserWindow.Top = frameOrigin.Y + Canvas.GetTop(_browserPanel);
+    }
+
+    private void RefreshNativeBrowserWindows()
+    {
+        if (_bubbleWindow is null || _browserWindow is null) return;
+        if (!_invoiceScopeActive || WindowState == WindowState.Minimized ||
+            !_overlay.IsVisible || _overlay.ActualWidth < 180 ||
+            _overlay.ActualHeight < 180 ||
+            (!IsActive && _browserWindow.IsActive == false &&
+             _bubbleWindow.IsActive == false))
+        {
+            HideNativeBrowserWindows();
+            return;
+        }
+
+        PositionNativeBrowserWindows();
+        if (_panelOpen)
+        {
+            if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+            if (!_browserWindow.IsVisible) _browserWindow.Show();
+        }
+        else
+        {
+            if (_browserWindow.IsVisible) _browserWindow.Hide();
+            if (!_bubbleWindow.IsVisible) _bubbleWindow.Show();
+        }
     }
 
     // Keep Check Updates accessible from the standard Windows title-bar
@@ -325,6 +482,7 @@ internal sealed class MainWindow : Window
             _overlay.Visibility = Visibility.Collapsed;
             _browserPanel.Visibility = Visibility.Collapsed;
             _bubble.Visibility = Visibility.Collapsed;
+            HideNativeBrowserWindows();
             return;
         }
 
@@ -349,6 +507,7 @@ internal sealed class MainWindow : Window
         _browserPanel.Visibility = _panelOpen ? Visibility.Visible : Visibility.Collapsed;
         _bubble.Visibility = _panelOpen ? Visibility.Collapsed : Visibility.Visible;
         FitOverlay();
+        RefreshNativeBrowserWindows();
     }
 
     private void OnWorkspaceMessage(object? sender,
@@ -400,9 +559,9 @@ internal sealed class MainWindow : Window
         _bubble.Click += async (_, _) => await OpenBrowserPanelAsync();
         _bubble.Visibility = Visibility.Collapsed;
 
-        // Native bubble is deliberately fixed at top right, eliminating the
-        // stale pointer-capture behaviour from the old iframe widget.
-        _overlay.Children.Add(_bubble);
+        // This button is hosted in its own tiny native owned Window rather
+        // than over the HwndHost WebView2; there is NO full-screen overlay
+        // Window that could intercept mouse input to Excel/Chrome/desktop.
     }
 
     private void BuildBrowserPanel()
@@ -561,6 +720,7 @@ internal sealed class MainWindow : Window
             var maxHeight = Math.Max(220, _overlay.ActualHeight - Canvas.GetTop(_browserPanel) - 8);
             _browserPanel.Width = Bound(_browserPanel.Width + e.HorizontalChange, minWidth, maxWidth);
             _browserPanel.Height = Bound(_browserPanel.Height + e.VerticalChange, 220, maxHeight);
+            PositionNativeBrowserWindows();
         };
         grip.DragCompleted += (_, _) =>
         {
@@ -571,7 +731,9 @@ internal sealed class MainWindow : Window
         Grid.SetColumn(grip, 1);
         foot.Children.Add(grip);
 
-        _overlay.Children.Add(_browserPanel);
+        // Browser panel belongs to a small, non-topmost native owned Window.
+        // Its separate HWND avoids WPF/WebView2 airspace conflicts, while
+        // Hide()/Show() preserves the live WebView and Telegram session.
     }
 
     private sealed record BookmarkItem(string Url, string Name)
@@ -617,7 +779,7 @@ internal sealed class MainWindow : Window
             if (e.LeftButton != MouseButtonState.Pressed || !_panelOpen) return;
             _dragging = surface.CaptureMouse();
             if (!_dragging) return;
-            _dragFrom = e.GetPosition(_overlay);
+            _dragFrom = MouseScreenPointDip();
             _panelFrom = new Point(Canvas.GetLeft(_browserPanel), Canvas.GetTop(_browserPanel));
             e.Handled = true;
         };
@@ -625,11 +787,12 @@ internal sealed class MainWindow : Window
         {
             if (!_dragging) return;
             if (e.LeftButton != MouseButtonState.Pressed) { EndPanelDrag(surface); return; }
-            var current = e.GetPosition(_overlay);
+            var current = MouseScreenPointDip();
             var x = _panelFrom.X + (current.X - _dragFrom.X);
             var y = _panelFrom.Y + (current.Y - _dragFrom.Y);
             Canvas.SetLeft(_browserPanel, Bound(x, 7, _overlay.ActualWidth - _browserPanel.Width - 7));
             Canvas.SetTop(_browserPanel, Bound(y, 7, _overlay.ActualHeight - _browserPanel.Height - 7));
+            PositionNativeBrowserWindows();
         };
         surface.MouseLeftButtonUp += (_, _) => EndPanelDrag(surface);
         // WPF can deliver the button-release outside the captured element.
@@ -689,6 +852,7 @@ internal sealed class MainWindow : Window
         if (double.IsNaN(preferredY)) preferredY = _preferences.PanelY;
         Canvas.SetLeft(_browserPanel, Bound(preferredX, 8, _overlay.ActualWidth - _browserPanel.Width - 8));
         Canvas.SetTop(_browserPanel, Bound(preferredY, 8, _overlay.ActualHeight - _browserPanel.Height - 8));
+        PositionNativeBrowserWindows();
     }
 
     private void RememberPanel()
@@ -782,6 +946,7 @@ internal sealed class MainWindow : Window
         _browserPanel.Visibility = Visibility.Visible;
         _bubble.Visibility = Visibility.Collapsed;
         FitOverlay();
+        RefreshNativeBrowserWindows();
         if (_browserReady || _browserStarting) return;
         _browserStarting = true;
         _notice.Text = "Starting native WebView2 browser…";
@@ -861,6 +1026,7 @@ internal sealed class MainWindow : Window
         ReleaseBrowserMouseCapture();
         _browserPanel.Visibility = Visibility.Collapsed;
         _bubble.Visibility = _invoiceScopeActive ? Visibility.Visible : Visibility.Collapsed;
+        RefreshNativeBrowserWindows();
         // Keep the same WebView2 instance alive: no Dispose, no Navigate,
         // no profile wipe, no page reload, no invoice state changes.
     }

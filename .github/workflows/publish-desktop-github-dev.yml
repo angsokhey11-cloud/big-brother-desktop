@@ -76,6 +76,12 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
 
+      - name: Guard standard WebView2 HWND shell against invisible click-blocking layer
+        shell: pwsh
+        run: |
+          python tests/test_standard_webview_shell.py
+          if ($LASTEXITCODE -ne 0) { throw "Standard WebView2 desktop shell safety regression failed" }
+
       - name: Regression guard — release mouse capture outside BIG BROTHER Desktop
         shell: pwsh
         run: |

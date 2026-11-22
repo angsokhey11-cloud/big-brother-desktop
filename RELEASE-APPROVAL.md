@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.9
+APPROVED_VERSION=0.3.0
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -58,3 +58,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Root cause candidate: earlier code could clear `_dragging` without `ReleaseMouseCapture()`, potentially leaving another app's mouse clicks intercepted. Full intermittent real-PC behavior requires acceptance testing to confirm.
 - Windows build 44997774478 passed compilation, both frontend/navigation regression and native pointer-capture guard, and full installer packaging.
 - Internal GitHub development prerelease only, not yet staff-approved stable production software.
+
+## Approved v0.3.0 — Desktop WebView2 ghost-click isolation test
+
+- Confirmed v0.2.9 mouse capture cleanup did not resolve the user's symptom: other Windows programs cannot be clicked even when the floating Invoice Generator browser was never opened; closing BIG BROTHER Desktop restores normal clicks.
+- Microsoft open WebView2 issues #4829 and #5459 describe similar desktop-click obstruction and ghost-layer behavior in WPF WebView2.
+- Changed the desktop's always-on Dashboard from WPF WebView2CompositionControl (screen-capture/composition rendering) to standard HWND-hosted WPF WebView2. The Invoice Generator native browser also uses standard WebView2, in small non-topmost owned Windows rather than a full-frame WPF overlay.
+- Native bubble/panel exist only within Invoice Generator. Both automatically hide when the main app minimizes, closes, switches away, or another application becomes active. Browser settings/profiles remain in the existing user directory.
+- Passed Windows full CI run 44998929882: 32 pinned module packaging, static shell/capture regression guards, navigation regression, .NET 10 warnings-as-errors compilation, self-contained publish and Velopack packaging.
+- This is a **diagnostic development build**, not yet user-confirmed. Validate on the user's PC: clicks on Excel/Chrome/desktop icons before Invoice Generator, after minimize/restore, after opening/minimizing floating Telegram browser; ensure Telegram login persists.
+- No Cloud/PWA source, Supabase configuration/schema, accounting workflow, invoice, bank, stock or COGS changes. Production staff rollout remains unapproved.
