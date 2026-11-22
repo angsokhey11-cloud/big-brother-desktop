@@ -91,7 +91,17 @@ try {
     Write-Host 'Downloading the update package directly from GitHub...'
     Invoke-WebRequest -Uri $url -OutFile $download -UseBasicParsing -MaximumRedirection 8
 
-    $sha = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash
+    # Use .NET directly for SHA256: available even when the PowerShell
+    # Get-FileHash cmdlet is missing/restricted on a Windows workstation.
+    $stream = [System.IO.File]::OpenRead($download)
+    try {
+        $algorithm = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $sha = ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '')
+        }
+        finally { $algorithm.Dispose() }
+    }
+    finally { $stream.Dispose() }
     if ($sha -cne $expectedSha) {
         throw 'Downloaded GitHub release SHA256 mismatch! No installation attempted.'
     }
