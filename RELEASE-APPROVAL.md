@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.5
+APPROVED_VERSION=0.3.6
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -120,3 +120,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Preserve v0.3.0 standard WebView2 ghost-click isolation and the Telegram chat-link reload behavior from v0.3.4. User's existing accounting UI/frontend, bank/stock/receivables rules, Supabase, Cloud/PWA, and Local Brain are not modified.
 - Windows CI **45011342805** passed static global browser lifecycle/ghost-click checks, shortcut/Home/tab tests, Sales Support navigation regression, warnings-as-errors .NET 10 compilation, bundling of all 32 pinned accounting frontends, and Velopack Windows installer packaging.
 - Consent-controlled **internal development prerelease only**. Real Windows acceptance is required for tab switching, browser full Close, 3rd-party links, login persistence and system-wide mouse safety.
+
+## Approved v0.3.6 — Browser identity, branded Home and collapsible shortcuts
+
+- Approved BIG BROTHER Desktop Browser appearance: replace square blue target badge with an unboxed professional white vector globe in the sidebar brand header and a "Browser" caption below, using a fully transparent WPF click target that preserves the small non-topmost HWND window and system-wide mouse isolation.
+- Replace duplicate Home shortcut tiles with a locally rendered BIG BROTHER dairy-distribution Home: branded welcome hero, native vector milk-bottle/warehouse/delivery illustration and brief business/browser information. Retain the exact existing saved website/chat shortcuts only in the top strip, without hard-coded live accounting numbers or new API calls.
+- Add an explicit "Shortcuts ▴ / Shortcuts ▾" control immediately before the horizontal saved shortcuts strip. Collapse/expand changes only visibility and row height, never deletes bookmarks, names, or WebView2 profile. Persist BrowserShortcutsExpanded=true by default in backwards-compatible workstation settings.
+- Keep existing URL collapse toggle, tabs, browser Close-vs-Minimize semantics, full explicit Telegram saved URLs, multi-tab WebView2 profile reuse and global Dashboard availability.
+- No Cloud/PWA, Local Brain, Supabase, invoice, bank, stock, A/R, backend, or accounting-rule changes. No full-desktop, composition, or topmost overlay was introduced.
+- Full Windows development CI run **45012927350** passed: browser Home and launcher regression, shortcuts collapse and persistence checks, native ghost-screen focus safety checks, Sales Support navigation regression, warning-as-error .NET 10 build, bundled accounting frontend snapshots, and Windows Velopack development installer artifact upload.
+- Approved for **internal development prerelease only**. Real Windows UI acceptance and ghost-screen sanity testing still required.

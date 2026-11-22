@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser Workspace v0.3.5 shortcuts, URL and local profile regression."""
+"""Browser Workspace v0.3.6 shortcuts, URL and local profile regression."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
@@ -10,8 +10,8 @@ checks={
         and "SyncAddress();" in browser,
     "Displayed full URL includes fragment": "_address.Text = current.AbsoluteUri;" in browser,
     "Save URL at end of address bar": "Grid.SetColumn(save, 5);" in browser,
-    "Saved website appears in shortcut row and Home": "_shortcutButtons.Children.Add(button);" in browser
-        and "_homeButtons.Children.Add(homeButton);" in browser,
+    "Saved website appears only in top shortcut strip": "_shortcutButtons.Children.Add(button);" in browser
+        and "_homeButtons" not in browser,
     "Triple-click rename never navigates on first two clicks": "if (clicks >= 3)" in browser
         and "TimeSpan.FromMilliseconds(650)" in browser,
     "Right-click rename and remove": "button.ContextMenu = context;" in browser
@@ -25,10 +25,13 @@ checks={
         and "_settings.TelegramShortcutName = chosen;" in browser,
     "Telegram Web A bootstrap reloading": "window.history.replaceState(window.history.state" in browser
         and "window.location.reload();" in browser,
+    "Shortcut strip collapses without deleting bookmarks": "private void SetShortcutVisibility()" in browser
+        and "_shortcutScroller.Visibility = expanded" in browser
+        and "SettingsStore.Save(_settings);" in browser,
     "URL bar collapse preserved": "SetAddressVisibility();" in browser
         and "BrowserAddressBarVisible" in browser,
     "Existing persistent WebView2 profile reused": "SettingsStore.BrowserProfile" in browser,
-    "Correct development version": "<Version>0.3.5</Version>" in proj,
+    "Correct development version": "<Version>0.3.6</Version>" in proj,
 }
 for k,v in checks.items():
     assert v,"FAILED "+k

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v0.3.5 multi-tab browser: fresh home, global access and real full close."""
+"""v0.3.6: branded Home, transparent globe launcher and global browser lifecycle."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 b=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
@@ -45,6 +45,23 @@ checks={
     "Old Invoice-relative window position migrated once":
         "BrowserGlobalPositionMigrated" in b
         and "public bool BrowserGlobalPositionMigrated" in s,
+    "Saved shortcuts strip is collapsible and keeps its toggle visible": 
+        "SetShortcutVisibility();" in b
+        and "var shortcutBar = new DockPanel" in b
+        and "private void SetShortcutVisibility()" in b
+        and "BrowserShortcutsExpanded" in b
+        and "public bool BrowserShortcutsExpanded { get; set; } = true;" in s,
+    "Home is branded, not a duplicate bookmark grid":
+        "private void BuildBrandedHome()" in b
+        and "private static Canvas DairyArtwork()" in b
+        and "_homeButtons" not in b,
+    "Browser launcher has bare vector globe and text label":
+        'var globe = new Canvas { Width = 38, Height = 38 };' in b
+        and 'Label("Browser", 11, "#ffffff", true)' in b
+        and 'Background = Brushes.Transparent' in b
+        and "bubble.Template = template;" in b,
+    "No hard-coded live accounting totals":
+        "62,871.99" not in b and "659" not in b,
     "No accounting network code changes":
         "Supabase" not in b and "Postgrest" not in b,
 }
