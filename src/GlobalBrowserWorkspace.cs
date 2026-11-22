@@ -788,6 +788,15 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         if (_resizeGrip?.IsMouseCaptured == true) _resizeGrip.ReleaseMouseCapture();
     }
 
+    // Restores access even when Invoice Generator has the sidebar collapsed.
+    // Opens the existing native Browser, not a second PWA browser.
+    public void OpenFromDesktopMenu()
+    {
+        if (_closed || _browserWindow is null) return;
+        Open();
+        if (_browserWindow.IsVisible) _browserWindow.Activate();
+    }
+
     private void Open()
     {
         if (_closed) return;
