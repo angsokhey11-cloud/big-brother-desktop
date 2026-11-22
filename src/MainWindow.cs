@@ -42,6 +42,7 @@ internal sealed class MainWindow : Window
     private readonly Grid _body = new();
     private Window? _bubbleWindow;
     private Window? _browserWindow;
+    private Window? _browserDialog;
 
     private bool _browserReady;
     private bool _browserStarting;
@@ -362,7 +363,7 @@ internal sealed class MainWindow : Window
     private void HideNativeWindowsIfAnotherAppActive()
     {
         if (IsActive || _browserWindow?.IsActive == true ||
-            _bubbleWindow?.IsActive == true) return;
+            _bubbleWindow?.IsActive == true || _browserDialog?.IsActive == true) return;
         // Native windows are never topmost. Hide both when another program
         // becomes active; do not leave a ghost layer over other applications.
         HideNativeBrowserWindows();
@@ -407,7 +408,7 @@ internal sealed class MainWindow : Window
             !_overlay.IsVisible || _overlay.ActualWidth < 180 ||
             _overlay.ActualHeight < 180 ||
             (!IsActive && _browserWindow.IsActive == false &&
-             _bubbleWindow.IsActive == false))
+             _bubbleWindow.IsActive == false && _browserDialog?.IsActive != true))
         {
             HideNativeBrowserWindows();
             return;
@@ -799,6 +800,21 @@ internal sealed class MainWindow : Window
         finally { _refreshingBookmarks = false; }
     }
 
+    private bool? ShowBrowserDialog(Window dialog)
+    {
+        // An active, explicitly requested bookmark dialog counts as an owned
+        // browser surface. Do not hide its owner as a ghost overlay while the
+        // prompt itself has focus. Switching to another app still hides it.
+        _browserDialog = dialog;
+        try { return dialog.ShowDialog(); }
+        finally
+        {
+            _browserDialog = null;
+            Dispatcher.BeginInvoke(new Action(RefreshNativeBrowserWindows),
+                DispatcherPriority.ContextIdle);
+        }
+    }
+
     private string? PromptBookmarkName(string title, string initialName)
     {
         // Native modal is temporary and owned by the small floating browser;
@@ -815,7 +831,7 @@ internal sealed class MainWindow : Window
         var layout = new StackPanel { Margin = new Thickness(18, 13, 18, 10) };
         layout.Children.Add(Text("Shortcut name", 12, "#234a78", FontWeights.SemiBold));
         var input = MakeAddressBox();
-        input.Text = initialName;
+        input.Text = initialName.Length > 80 ? initialName[..80] : initialName;
         input.Margin = new Thickness(0, 7, 0, 11);
         input.MaxLength = 80;
         layout.Children.Add(input);
@@ -843,7 +859,7 @@ internal sealed class MainWindow : Window
         layout.Children.Add(buttons);
         prompt.Content = layout;
         prompt.Loaded += (_, _) => { input.Focus(); input.SelectAll(); };
-        return prompt.ShowDialog() == true ? input.Text.Trim() : null;
+        return ShowBrowserDialog(prompt) == true ? input.Text.Trim() : null;
     }
 
     private void BookmarkCurrent()
@@ -899,10 +915,34 @@ internal sealed class MainWindow : Window
             _notice.Text = "Select a saved website to remove";
             return;
         }
-        var owner = _browserWindow?.IsVisible == true ? _browserWindow : this;
-        if (MessageBox.Show(owner, "Remove shortcut '" + item.Name + "'?",
-                "BIG BROTHER Browser", MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        var confirmation = new Window
+        {
+            Title = "Remove website shortcut",
+            Owner = _browserWindow?.IsVisible == true ? _browserWindow : this,
+            Width = 390, Height = 156,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false, Background = Paint("#f4f7fc")
+        };
+        var layout = new StackPanel { Margin = new Thickness(18, 14, 18, 10) };
+        layout.Children.Add(Text("Remove shortcut '" + item.Name + "'?", 12,
+            "#234a78", FontWeights.SemiBold));
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0)
+        };
+        var cancel = MakeButton("Cancel", "#edf1f7", "#234a78", 11, 76);
+        cancel.IsCancel = true;
+        cancel.Click += (_, _) => confirmation.DialogResult = false;
+        buttons.Children.Add(cancel);
+        var remove = MakeButton("Remove", "#b23434", "#ffffff", 11, 82);
+        remove.Click += (_, _) => confirmation.DialogResult = true;
+        buttons.Children.Add(remove);
+        layout.Children.Add(buttons);
+        confirmation.Content = layout;
+        if (ShowBrowserDialog(confirmation) != true) return;
         _preferences.Bookmarks?.RemoveAll(x => string.Equals(x, item.Url,
             StringComparison.OrdinalIgnoreCase));
         _preferences.BookmarkTitles?.Remove(item.Url);
