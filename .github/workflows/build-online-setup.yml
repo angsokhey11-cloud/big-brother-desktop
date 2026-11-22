@@ -1,0 +1,88 @@
+name: Build lightweight BIG BROTHER Desktop online setup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrapper/**'
+      - 'tools/create_icon.py'
+      - '.github/workflows/build-online-setup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  online-setup:
+    name: Compile small EXE with verified GitHub download
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout Windows bootstrapper source
+        uses: actions/checkout@v4
+
+      - name: Prepare approved BIG BROTHER icon source
+        shell: pwsh
+        run: |
+          $lock = Get-Content 'config/modules.lock.json' -Raw | ConvertFrom-Json
+          $dashboard = $lock.modules | Where-Object { $_.name -eq 'big-brother-dashboard' }
+          if (-not $dashboard.sha) { throw 'Dashboard pin missing' }
+          New-Item -ItemType Directory -Force 'build/web/big-brother-dashboard' | Out-Null
+          $uri = "https://raw.githubusercontent.com/$($lock.owner)/big-brother-dashboard/$($dashboard.sha)/desktop-pwa-icon.svg"
+          Invoke-WebRequest -Uri $uri -OutFile 'build/web/big-brother-dashboard/desktop-pwa-icon.svg'
+          if (-not (Test-Path 'build/web/big-brother-dashboard/desktop-pwa-icon.svg')) { throw 'Brand asset missing' }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate multi-resolution BIG BROTHER application icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Pillow install failed' }
+          python tools/create_icon.py
+          if ($LASTEXITCODE -ne 0) { throw 'Branded ICO generation failed' }
+
+      - name: Compile native Windows Forms online setup (no .NET runtime bundled)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force 'bootstrapper-output' | Out-Null
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path $csc)) { throw "Windows .NET Framework C# compiler missing: $csc" }
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /warnaserror+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Core.dll /win32icon:build\icon\big-brother.ico /out:bootstrapper-output\BIG-BROTHER-Desktop-Online-Setup.exe bootstrapper\OnlineSetup.cs
+          if ($LASTEXITCODE -ne 0) { throw "Online Setup C# build failed: $LASTEXITCODE" }
+          $file = Get-Item bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe
+          if ($file.Length -gt 2097152 -or $file.Length -lt 10000) {
+            throw "Unexpected Online Setup size: $($file.Length) bytes"
+          }
+          [void][Reflection.AssemblyName]::GetAssemblyName($file.FullName)
+          Write-Host "Lightweight branded online Setup.exe built successfully ($($file.Length) bytes)."
+
+      - name: Verify Velopack supports user-selected installation drive
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force 'installer-smoke' | Out-Null
+          gh release download desktop-dev-v0.2.4 --repo $env:GITHUB_REPOSITORY --pattern 'BigBrother.Desktop-dev-Setup.exe' --dir installer-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch approved previous setup for path check' }
+          $setup = (Resolve-Path 'installer-smoke/BigBrother.Desktop-dev-Setup.exe').Path
+          $custom = Join-Path $env:RUNNER_TEMP 'BIG BROTHER Desktop Custom Folder'
+          # Real online wizard probes/creates this directory before setup.
+          New-Item -ItemType Directory -Force $custom | Out-Null
+          $proc = Start-Process -FilePath $setup -ArgumentList @('--silent','--installto', ('"' + $custom + '"')) -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Velopack custom install failed: $($proc.ExitCode)" }
+          $meta = Join-Path $custom 'current/sq.version'
+          if (-not (Test-Path $meta)) { throw "Selected path was not installed: $meta" }
+          [xml]$xml = Get-Content $meta -Raw
+          if ([string]$xml.package.metadata.id -ne 'BigBrother.Desktop') { throw 'Incorrect installed app ID' }
+          Write-Host "Verified BigBrother.Desktop can be installed to a user-selected folder: $custom"
+
+      - name: Upload standalone ONE-FILE development online installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIG-BROTHER-Online-Setup-EXE-Build
+          path: bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe
+          if-no-files-found: error
+          retention-days: 21

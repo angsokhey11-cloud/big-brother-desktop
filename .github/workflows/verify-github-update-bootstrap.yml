@@ -1,0 +1,104 @@
+name: Verify installed Desktop upgrades directly from GitHub Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-github-update-bootstrap.yml'
+      - 'tools/Bootstrap-GitHub-Updates.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-github-bootstrap:
+    name: Installed v0.2.3 -> GitHub development v0.2.4, preserve settings
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the approved public GitHub release
+        shell: pwsh
+        run: |
+          $release = gh api repos/$env:GITHUB_REPOSITORY/releases/tags/desktop-dev-v0.2.4 | ConvertFrom-Json
+          if ($release.draft -or -not $release.prerelease) { throw 'Expected public development prerelease' }
+          $names = @($release.assets | ForEach-Object { $_.name })
+          foreach ($required in @('releases.dev.json', 'BigBrother.Desktop-0.2.4-dev-full.nupkg')) {
+            if ($names -notcontains $required) { throw "GitHub update release missing: $required" }
+          }
+          $pkg = $release.assets | Where-Object { $_.name -eq 'BigBrother.Desktop-0.2.4-dev-full.nupkg' }
+          if ($pkg.digest -notmatch '^sha256:[a-fA-F0-9]{64}$') { throw 'GitHub asset SHA256 unavailable' }
+          Write-Host 'Development GitHub update feed and SHA256 verified.'
+
+      - name: Download older v0.2.3 app installer
+        shell: pwsh
+        run: |
+          gh run download 44989142204 --repo $env:GITHUB_REPOSITORY --name BIG-BROTHER-Desktop-DEV-Installer --dir older
+          if ($LASTEXITCODE -ne 0) { throw 'Could not obtain prior Desktop installer' }
+          $setup = Get-ChildItem older -File -Filter '*-Setup.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'Older installed version missing Setup.exe' }
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList '--silent' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installing older version failed: $($p.ExitCode)" }
+
+      - name: Create dummy user profile and ensure installed version is older
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:LOCALAPPDATA 'BigBrother.Desktop'
+          [xml]$installed = Get-Content -Raw (Join-Path $root 'current/sq.version')
+          if ([string]$installed.package.metadata.version -ne '0.2.3') {
+            throw "Expected installed v0.2.3, found $($installed.package.metadata.version)"
+          }
+          $profile = Join-Path $env:LOCALAPPDATA 'BIG BROTHER/Desktop'
+          New-Item -Path $profile -ItemType Directory -Force | Out-Null
+          Set-Content (Join-Path $profile 'retain-github-upgrade-check.txt') 'retain-user-settings'
+
+      - name: Invoke one-time user bootstrap using only public GitHub release
+        shell: pwsh
+        run: |
+          $script = (Resolve-Path 'tools/Bootstrap-GitHub-Updates.ps1').Path
+          $start = [System.Diagnostics.ProcessStartInfo]::new()
+          $start.FileName = 'powershell.exe'
+          $start.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $script + '"'
+          $start.UseShellExecute = $false
+          $start.RedirectStandardInput = $true
+          # Do not redirect stdout/stderr while waiting: PowerShell's
+          # verbose download progress can otherwise fill the OS pipe buffer
+          # and deadlock the parent waiting for the child to exit.
+          $start.RedirectStandardOutput = $false
+          $start.RedirectStandardError = $false
+          $start.CreateNoWindow = $true
+          $process = [System.Diagnostics.Process]::Start($start)
+          $process.StandardInput.WriteLine('UPDATE')
+          $process.StandardInput.WriteLine('')
+          $process.StandardInput.Close()
+          if (-not $process.WaitForExit(240000)) {
+            $process.Kill()
+            throw 'GitHub bootstrap timed out'
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "GitHub bootstrap returned an error exit code: $($process.ExitCode)"
+          }
+          # The next step verifies the actual installed sq.version and
+          # persistent profile marker, rather than trusting console text.
+
+      - name: Check upgraded app, identical package identity, and retained settings
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:LOCALAPPDATA 'BigBrother.Desktop'
+          [xml]$installed = Get-Content -Raw (Join-Path $root 'current/sq.version')
+          if ([string]$installed.package.metadata.version -ne '0.2.4') {
+            throw "Expected v0.2.4, found $($installed.package.metadata.version)"
+          }
+          if ([string]$installed.package.metadata.id -ne 'BigBrother.Desktop') {
+            throw 'Application identity changed unexpectedly'
+          }
+          $marker = Join-Path $env:LOCALAPPDATA 'BIG BROTHER/Desktop/retain-github-upgrade-check.txt'
+          if ((Get-Content $marker) -ne 'retain-user-settings') {
+            throw 'App settings profile did not survive GitHub upgrade'
+          }
+          Write-Host 'Verified real GitHub release package upgrade 0.2.3 -> 0.2.4 with user profile retained.'

@@ -84,6 +84,18 @@ jobs:
           python tools/create_icon.py
           if ($LASTEXITCODE -ne 0) { throw 'Windows icon generation failed' }
 
+      - name: Compile lightweight standalone online setup wizard
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force 'bootstrapper-output' | Out-Null
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path $csc)) { throw "Windows C# compiler unavailable: $csc" }
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /warnaserror+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Core.dll /win32icon:build\icon\big-brother.ico /out:bootstrapper-output\BIG-BROTHER-Desktop-Online-Setup.exe bootstrapper\OnlineSetup.cs
+          if ($LASTEXITCODE -ne 0) { throw "Online setup compilation failed: $LASTEXITCODE" }
+          $file = Get-Item 'bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe'
+          if ($file.Length -lt 10000 -or $file.Length -gt 2097152) { throw "Unexpected size of thin installer: $($file.Length)" }
+          Write-Host "Compiled one-file online installer: $($file.Length) bytes"
+
       - name: Compile application with warnings as errors
         shell: pwsh
         run: |
@@ -157,3 +169,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Development release upload failed' }
           gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json url,isDraft,isPrerelease,assets
           if ($LASTEXITCODE -ne 0) { throw 'Published GitHub release not visible' }
+
+      - name: Attach small direct-download Online-Setup.exe to GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release upload $env:TAG 'bootstrapper-output/BIG-BROTHER-Desktop-Online-Setup.exe' --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw 'Small online installer upload failed' }
+          $result = gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json assets | ConvertFrom-Json
+          $asset = @($result.assets | Where-Object { $_.name -eq 'BIG-BROTHER-Desktop-Online-Setup.exe' })
+          if ($asset.Count -ne 1) { throw 'Direct EXE release asset not found' }
+          if ($asset[0].size -gt 2097152) { throw 'Online setup release asset unexpectedly large' }
+          Write-Host "Direct downloadable branded Windows Setup EXE is published: $($asset[0].size) bytes"

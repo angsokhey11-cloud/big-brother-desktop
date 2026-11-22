@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.4
+APPROVED_VERSION=0.2.5
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -15,4 +15,11 @@ This approval is **for the internal BIG BROTHER Desktop development channel only
 
 To approve the next version, bump the app/pack version, validate CI, update `APPROVED_VERSION`, then deliberately advance `desktop-release` to that reviewed commit.
 
-Deployment approval: publish only v0.2.4 as a GitHub development prerelease after successful CI packaging. Keep future versions gated on deliberate release-branch updates.
+## Approved v0.2.5 changes
+
+- Publish the lightweight branded one-file online setup via GitHub Releases.
+- Users may choose both the installed application folder and the separate per-user browser/settings data folder.
+- The online setup downloads and checksum-verifies the full approved package before delegating to the Velopack installer; existing users continue updating within the app.
+- Main accounting frontend revisions remain pinned; no DB writes, SQL migrations or financial logic changes.
+- The small setup EXE is unsigned development software and needs Windows .NET Framework and internet access on first install.
+- Pre-release source/installer CI and real custom-folder Windows setup tests have passed.

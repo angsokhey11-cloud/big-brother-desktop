@@ -10,6 +10,7 @@ $root = Join-Path $env:LOCALAPPDATA 'BigBrother.Desktop'
 $updater = Join-Path $root 'Update.exe'
 $metaFile = Join-Path $root 'current\sq.version'
 $download = $null
+$scriptFailed = $false
 
 try {
     Write-Host ''
@@ -50,6 +51,7 @@ try {
     if (-not $latest) {
         Write-Host 'No approved GitHub Desktop development updates are published yet.'
         Read-Host 'Press Enter to close'
+if ($scriptFailed) { exit 1 }
         exit 0
     }
 
@@ -91,7 +93,17 @@ try {
     Write-Host 'Downloading the update package directly from GitHub...'
     Invoke-WebRequest -Uri $url -OutFile $download -UseBasicParsing -MaximumRedirection 8
 
-    $sha = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash
+    # Use .NET directly for SHA256: available even when the PowerShell
+    # Get-FileHash cmdlet is missing/restricted on a Windows workstation.
+    $stream = [System.IO.File]::OpenRead($download)
+    try {
+        $algorithm = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $sha = ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '')
+        }
+        finally { $algorithm.Dispose() }
+    }
+    finally { $stream.Dispose() }
     if ($sha -cne $expectedSha) {
         throw 'Downloaded GitHub release SHA256 mismatch! No installation attempted.'
     }
@@ -112,13 +124,40 @@ try {
 
     Write-Host 'SHA256 and application identity verified.' -ForegroundColor Green
     Write-Host 'Updating the existing installation with Velopack...'
-    & $updater apply --norestart --package $download
-    if ($LASTEXITCODE -ne 0) { throw "Installed Velopack updater returned error $LASTEXITCODE." }
 
-    [xml]$result = Get-Content -LiteralPath $metaFile -Raw
-    if ([string]$result.package.metadata.version -ne $latest.VersionText) {
-        throw 'Updater finished, but installed version was not verified. Please do not manually delete files.'
+    # Update.exe is a Windows-subsystem executable. In Windows PowerShell 5.1,
+    # invoking it with the call operator may leave $LASTEXITCODE unset even
+    # when the upgrade actually succeeded. An unset exit code compares
+    # unequal to 0 and previously caused a FALSE "Update stopped" warning.
+    # Start-Process -Wait -PassThru has a real process ExitCode and is already
+    # exercised by our Windows in-place regression workflow.
+    $quotedPackage = '"' + $download + '"'
+    $updateProcess = Start-Process -FilePath $updater -ArgumentList @(
+        'apply', '--norestart', '--package', $quotedPackage
+    ) -Wait -PassThru
+    $updateExit = $updateProcess.ExitCode
+
+    # Installed-version metadata is the authoritative result. Do not report
+    # a failed update just because Windows did not expose a process exit code,
+    # and never report success without verifying the expected version.
+    $resultVersion = ''
+    for ($attempt = 0; $attempt -lt 12; $attempt++) {
+        if (Test-Path -LiteralPath $metaFile -PathType Leaf) {
+            try {
+                [xml]$result = Get-Content -LiteralPath $metaFile -Raw
+                $resultVersion = [string]$result.package.metadata.version
+                if ($resultVersion -eq $latest.VersionText) { break }
+            }
+            catch { }
+        }
+        Start-Sleep -Milliseconds 500
     }
+    if ($resultVersion -ne $latest.VersionText) {
+        throw ("Updater did not install the expected version. Installed: " +
+            $resultVersion + "; expected: " + $latest.VersionText +
+            "; updater exit code: " + $updateExit + ". Do not delete installation files.")
+    }
+    Write-Host "Verified installed version: $resultVersion" -ForegroundColor Green
 
     Write-Host ''
     Write-Host "SUCCESS! BIG BROTHER Desktop v$($latest.VersionText) is installed." -ForegroundColor Green
@@ -129,6 +168,7 @@ catch {
     Write-Host ''
     Write-Host ("Update stopped: " + $_.Exception.Message) -ForegroundColor Red
     Write-Host 'No uninstall or manual deletion was attempted.'
+    $scriptFailed = $true
 }
 finally {
     if ($download -and (Test-Path $download -PathType Leaf)) {
