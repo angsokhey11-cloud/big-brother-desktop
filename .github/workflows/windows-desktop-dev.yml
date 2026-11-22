@@ -47,6 +47,12 @@ jobs:
           python tools/create_icon.py
           if ($LASTEXITCODE -ne 0) { throw "BIG BROTHER icon generation failed" }
 
+      - name: Test Sales Support customer return navigation
+        shell: pwsh
+        run: |
+          node tests/sales_support_navigation_regression.js
+          if ($LASTEXITCODE -ne 0) { throw "Your Customer return navigation regression failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
