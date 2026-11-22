@@ -52,6 +52,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private Grid? _addressRow;
     private Thumb? _resizeGrip;
     private bool _panelOpen;
+    private bool _sidebarCollapsed;
     private bool _closed;
 
     private sealed class BrowserTab
@@ -725,6 +726,20 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         SettingsStore.Save(_settings);
     }
 
+    public void SetSidebarCollapsed(bool collapsed)
+    {
+        if (_closed || _sidebarCollapsed == collapsed) return;
+        _sidebarCollapsed = collapsed;
+        // Remove the entire native launcher HWND from the workspace when
+        // the Dashboard hides its sidebar; it must never float above Invoice
+        // Generator or intercept clicks on accounting pages.
+        if (collapsed)
+        {
+            if (_bubbleWindow?.IsVisible == true) _bubbleWindow.Hide();
+        }
+        else if (!_panelOpen) Refresh();
+    }
+
     public void Refresh()
     {
         if (_closed || _bubbleWindow is null || _browserWindow is null) return;
@@ -744,7 +759,13 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         else
         {
             if (_browserWindow.IsVisible) _browserWindow.Hide();
-            if (!_bubbleWindow.IsVisible) _bubbleWindow.Show();
+            // Collapsed sidebar means zero launcher HWND, not a small
+            // floating globe left on top of the accounting workspace.
+            if (_sidebarCollapsed)
+            {
+                if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+            }
+            else if (!_bubbleWindow.IsVisible) _bubbleWindow.Show();
         }
     }
 

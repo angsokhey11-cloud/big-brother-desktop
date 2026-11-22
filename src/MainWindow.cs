@@ -109,6 +109,39 @@ internal sealed class MainWindow : Window
         })();
         """;
 
+    // A one-way, unprivileged message from the installed Dashboard shell:
+    // only sidebar visibility, no accounting data or browser command surface.
+    private const string DashboardSidebarVisibilityScript = """
+        (function(){
+          if(window!==window.top||window.__bbNativeSidebarVisibilityV1)return;
+          window.__bbNativeSidebarVisibilityV1=true;
+          var previous=null;
+          function report(){
+            var side=document.querySelector('.sidebar');
+            if(!document.body)return;
+            var hidden=!side||getComputedStyle(side).display==='none'||
+              side.getBoundingClientRect().width<1;
+            if(hidden===previous)return;
+            previous=hidden;
+            try{
+              window.chrome?.webview?.postMessage(
+                'bbDesktopSidebarCollapsedV1:'+(hidden?'1':'0'));
+            }catch(_){}
+          }
+          function start(){
+            if(!document.body)return;
+            new MutationObserver(report).observe(document.body,{
+              attributes:true,attributeFilter:['class']
+            });
+            window.addEventListener('resize',report,{passive:true});
+            report();
+          }
+          if(document.readyState==='loading')
+            document.addEventListener('DOMContentLoaded',start,{once:true});
+          else start();
+        })();
+        """;
+
     // Runs only in the top-level Dashboard document. The dashboard already
     // identifies the active iframe with moduleFrame.dataset.module = "invoice".
     // The small observer reports iframe bounds but never touches accounting data.
@@ -1147,11 +1180,32 @@ internal sealed class MainWindow : Window
             };
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.AreHostObjectsAllowed = false;
-            web.Settings.IsWebMessageEnabled = false;
+            // Enable only the one-way visibility signal from our installed
+            // top-level Dashboard document. No privileged host objects or
+            // accounting commands are exposed to the page.
+            web.Settings.IsWebMessageEnabled = true;
             web.Settings.IsStatusBarEnabled = false;
+            web.WebMessageReceived += (_, args) =>
+            {
+                // Ignore messages from any iframe or unrelated web origin.
+                if (!Uri.TryCreate(args.Source, UriKind.Absolute, out var source) ||
+                    !string.Equals(source.Host, "app.bigbrother.test",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(source.AbsolutePath,
+                        "/big-brother-dashboard/index.html",
+                        StringComparison.OrdinalIgnoreCase)) return;
+                string message;
+                try { message = args.TryGetWebMessageAsString(); }
+                catch (ArgumentException) { return; }
+                if (message == "bbDesktopSidebarCollapsedV1:1")
+                    _globalBrowser.SetSidebarCollapsed(true);
+                else if (message == "bbDesktopSidebarCollapsedV1:0")
+                    _globalBrowser.SetSidebarCollapsed(false);
+            };
             // Remove old Invoice-scoped iframe polling and use the global
             // native Browser Workspace instead.
             await web.AddScriptToExecuteOnDocumentCreatedAsync(HideWebInvoiceBubbleScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(DashboardSidebarVisibilityScript);
             web.NavigationCompleted += async (_, e) =>
             {
                 _workspaceStatus.Text = e.IsSuccess ? "Installed Dashboard / function loaded" : "Local accounting page failed to load";
