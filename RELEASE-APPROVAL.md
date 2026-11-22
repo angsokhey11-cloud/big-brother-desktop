@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.6
+APPROVED_VERSION=0.3.7
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -130,3 +130,16 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No Cloud/PWA, Local Brain, Supabase, invoice, bank, stock, A/R, backend, or accounting-rule changes. No full-desktop, composition, or topmost overlay was introduced.
 - Full Windows development CI run **45012927350** passed: browser Home and launcher regression, shortcuts collapse and persistence checks, native ghost-screen focus safety checks, Sales Support navigation regression, warning-as-error .NET 10 build, bundled accounting frontend snapshots, and Windows Velopack development installer artifact upload.
 - Approved for **internal development prerelease only**. Real Windows UI acceptance and ghost-screen sanity testing still required.
+
+## Approved v0.3.7 — Windows display name and Browser shortcut UX
+
+- User requested clean Windows app name: BIG BROTHER Desktop, without “(Development)” on Windows Start-menu/installed shortcuts and the displayed installer title. Update both development and release packaging workflows to use --packTitle "BIG BROTHER Desktop" and the GitHub release name without the suffix.
+- Crucial: Keep Velopack package ID BigBrother.Desktop, channel dev, versioned dev prerelease and consent-based updater unchanged, so this is an in-place update, not a separate app or staff production release. Main native window title remains BIG BROTHER Desktop • v0.3.7.
+- Fix Browser Shortcuts collapse: move Shortcuts ▴/▾ to the always-visible tab bar next to New Tab. When collapsed, shrink the shortcut row to exactly zero height and hide the scroller, returning the freed space to the browser page; do not delete saved URLs, names, or login data.
+- Remove the visible horizontal shortcut scrollbar but retain scrolling through PreviewMouseWheel over the shortcut row, mapping the normal mouse wheel to horizontal offset.
+- Support a standard left-button hold and drag/drop gesture to rearrange saved website and Telegram shortcuts, including the optional default Telegram Web button. Persist ordered shortcut keys in local workstation settings without changing the saved bookmark URL list, names, or full chat-specific addresses. Keep single-click open, triple-click rename, and right-click rename/remove. Drag payload carries no private URL and avoids manual global pointer capture.
+- Defer WPF button redraw until after the native drag has ended, protecting the previously fixed Windows ghost-click issue.
+- Move the unboxed white globe Browser launcher down into the reserved right edge of the dark sidebar below BIG BROTHER branding, preventing visual/click overlap while retaining its full 78x77 native click target. Preserve non-topmost bounded HWND-hosted WebView2 and off-app focus behavior.
+- No Cloud/PWA, Local Brain, Supabase, bank, inventory, invoice, A/R, financial logic or migration change.
+- Full Windows CI **45014130995** passed: cleaned desktop-name/pack identity assertions, global Browser and shortcut UX regressions, standard WebView2 ghost-screen and mouse-safety tests, Sales Support navigation, warnings-as-errors Windows compile, 32 pinned accounting frontends and Windows Velopack installer artifact upload.
+- This version remains an internal consent-controlled dev-channel prerelease only; real-Windows acceptance for launcher placement, wheel scroll and drag/drop remains necessary.
