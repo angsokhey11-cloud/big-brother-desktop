@@ -93,7 +93,8 @@ def bundle() -> None:
                     shutil.copy2(entry, target)
                 files += 1
                 bytes_count += target.stat().st_size
-            shutil.rmtree(source)
+            # Repositories stay under the temporary build directory until
+            # context-manager cleanup, which handles read-only Git objects on Windows.
             print(f"Bundled {name} @ {sha[:12]}", flush=True)
 
     for required in ("big-brother-dashboard/index.html",
