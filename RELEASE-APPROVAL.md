@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.4
+APPROVED_VERSION=0.3.5
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -108,3 +108,15 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Preserve the confirmed standard WebView2 HWND ghost-screen workaround, no topmost overlay or backend/accounting logic changes.
 - Full development Windows CI run **45004238898** succeeded: browser regression, ghost-click safety, Sales Support navigation, warnings-as-errors .NET 10 compilation, 32 frontend snapshots, installer and Velopack package artifact.
 - This is an internal consent-driven development prerelease. Telegram's real app behavior still requires acceptance testing on the user's signed-in PC; CI cannot exercise private Telegram chat navigation.
+
+## Approved v0.3.5 — Global Browser Workspace V2 with Home and multi-tabs
+
+- Promote the native WebView2 browser from an Invoice Generator-only scope to a small dashboard-wide circle, accessible in Dashboard, Sales, Stock, Sales Support, Receivables, and other main modules. The former Invoice-scoped browser is no longer constructed or activated, and the old dashboard polling hook is no longer registered.
+- Use a separate GlobalBrowserWorkspace with bounded, non-topmost, main-window-owned WPF windows and ordinary HWND-hosted WebView2 controls. The native circle is anchored near the upper-right edge of the Dashboard sidebar; the browser can be moved/resized. Keep owner deactivation/minimize logic to prevent ghost-screen or input interception in other Windows programs.
+- Start each new browser session on a clean native Home page with existing saved website and Telegram chat shortcuts. Do not automatically navigate to the last opened page; minimizing and reopening the circle preserves the current live tabs.
+- Allow up to eight independent tabs with shared existing BrowserProfile cookies/local session. Each tab has its own history and WebView2, plus New Tab, select, and Close Tab controls. Target-blank HTTP(S) links open another tab.
+- Add explicit Close Browser action distinct from Minimize: dispose every live WebView2 tab, hide the panel, keep the circle, and open to a fresh Home on next launch. Never wipe browser user profile, saved shortcuts, login cookies or preference data.
+- Preserve full explicitly saved chat URLs, rename/remove buttons and URL-bar toggle; prior local preferences remain compatible. Migrate former Invoice-relative browser panel position once to dashboard-relative coordinates.
+- Preserve v0.3.0 standard WebView2 ghost-click isolation and the Telegram chat-link reload behavior from v0.3.4. User's existing accounting UI/frontend, bank/stock/receivables rules, Supabase, Cloud/PWA, and Local Brain are not modified.
+- Windows CI **45011342805** passed static global browser lifecycle/ghost-click checks, shortcut/Home/tab tests, Sales Support navigation regression, warnings-as-errors .NET 10 compilation, bundling of all 32 pinned accounting frontends, and Velopack Windows installer packaging.
+- Consent-controlled **internal development prerelease only**. Real Windows acceptance is required for tab switching, browser full Close, 3rd-party links, login persistence and system-wide mouse safety.
