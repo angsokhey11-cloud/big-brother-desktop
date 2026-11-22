@@ -466,11 +466,10 @@ namespace BigBrotherOnlineSetup
                 note.Text = "Installation stopped: " + e.Message +
                             "\r\nNo application folder was manually deleted.";
                 progress.Value = 0;
-                next.Enabled = true;
-                next.Text = "Try Again";
-                next.Click -= NextClicked;
-                next.Click += RetryClicked;
-                back.Visible = true;
+                // Return to the folder page for a safe retry. Never mutate
+                // button event handlers during an asynchronous click.
+                step = 1;
+                Render();
                 cancel.Enabled = true;
                 MessageBox.Show(this, e.Message, "BIG BROTHER Desktop Setup",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -482,14 +481,6 @@ namespace BigBrotherOnlineSetup
                     try { Directory.Delete(temporaryDirectory, true); } catch { }
                 }
             }
-        }
-
-        private void RetryClicked(object sender, EventArgs e)
-        {
-            next.Click -= RetryClicked;
-            next.Click += NextClicked;
-            step = 1;
-            Render();
         }
 
         private static string Sha256(string path)
