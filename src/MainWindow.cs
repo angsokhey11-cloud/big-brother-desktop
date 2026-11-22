@@ -47,6 +47,7 @@ internal sealed class MainWindow : Window
     // The embedded browser belongs to the Invoice Generator only. The browser
     // stays alive if the user switches accounting functions.
     private const int UpdateSystemMenuCommand = 0x1E00;
+    private const int LocalUpdateMenuCommand = 0x1E10;
     private const int WmSysCommand = 0x0112;
     private const uint MfSeparator = 0x0800;
     private const uint MfString = 0x0000;
@@ -246,6 +247,8 @@ internal sealed class MainWindow : Window
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, (nuint)UpdateSystemMenuCommand,
                 "Check BIG BROTHER Desktop Updates");
+            AppendMenu(menu, MfString, (nuint)LocalUpdateMenuCommand,
+                "Install Downloaded Desktop Update...");
         }
         if (HwndSource.FromHwnd(hwnd) is { } source)
             source.AddHook(HandleSystemMenu);
@@ -259,6 +262,12 @@ internal sealed class MainWindow : Window
         {
             handled = true;
             _ = CheckUpdatesAsync();
+        }
+        else if (msg == WmSysCommand &&
+                 ((wParam.ToInt64() & 0xFFF0) == LocalUpdateMenuCommand))
+        {
+            handled = true;
+            _ = UpdateService.PromptLocalUpdateAsync(this, message => _workspaceStatus.Text = message);
         }
         return IntPtr.Zero;
     }
