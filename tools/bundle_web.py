@@ -27,6 +27,36 @@ def git(*args: str) -> None:
     subprocess.run(["git", *args], check=True, stdout=subprocess.DEVNULL)
 
 
+# Desktop-only reconciliation for the two Sales Support customer screens.
+# The normal Dashboard loader skips navigation if frame.dataset.module
+# already matches the button clicked. Add Customer and Customer Map used to
+# replace frame.src without updating that marker, so returning to Your
+# Customer looked like a no-op. Keep the source Cloud/PWA repositories intact.
+SALES_SUPPORT_ROUTE_MARKERS = {
+    "supabase-sales-support-add-customer.js": (
+        "workspace.hidden=false;frame.src=target.href;markActive();",
+        "workspace.hidden=false;frame.dataset.module=ROUTE;frame.src=target.href;markActive();",
+    ),
+    "supabase-sales-support-customer-map.js": (
+        "workspace.hidden=false;frame.src=URL;markActive();",
+        "workspace.hidden=false;frame.dataset.module=ROUTE;frame.src=URL;markActive();",
+    ),
+}
+
+
+def patch_desktop_sales_support_navigation(repo: str, relative: str, data: str) -> str:
+    if repo != "big-brother-dashboard" or relative not in SALES_SUPPORT_ROUTE_MARKERS:
+        return data
+    before, after = SALES_SUPPORT_ROUTE_MARKERS[relative]
+    if data.count(before) != 1:
+        raise RuntimeError(
+            f"Desktop Sales Support route patch marker missing or changed: {repo}/{relative}"
+        )
+    # This marker also invalidates the Dashboard's deferred iframe switch from
+    # a previous module, without touching customer/permission/business logic.
+    return data.replace(before, after, 1)
+
+
 def bundle() -> None:
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     owner = lock["owner"]
@@ -84,6 +114,9 @@ def bundle() -> None:
                     data = re.sub(re.escape(old.removeprefix("https:")), new, data, flags=re.I)
                     # WebView2 static host mapping need not serve a directory index.
                     data = root_pattern.sub(lambda m: m.group(1) + "index.html", data)
+                    data = patch_desktop_sales_support_navigation(
+                        name, rel.as_posix(), data
+                    )
                     for url in HTTP_RE.findall(data):
                         host = urlparse(url).netloc.lower()
                         if host not in ("app.bigbrother.test", "angsokhey11-cloud.github.io"):
