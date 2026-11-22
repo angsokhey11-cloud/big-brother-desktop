@@ -118,6 +118,12 @@ jobs:
           python tests/test_browser_logo_hit_area_v038.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop logo and Browser interaction regression failed" }
 
+      - name: Verify floating Browser globe collapses with Dashboard sidebar
+        shell: pwsh
+        run: |
+          python tests/test_browser_sidebar_collapse_v039.py
+          if ($LASTEXITCODE -ne 0) { throw "Desktop Browser sidebar-collapse regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
