@@ -44,3 +44,13 @@ This GitHub repository is currently PUBLIC. Do not add passwords, service-role k
 ## CI
 
 .github/workflows/windows-desktop-dev.yml builds and uploads a DEVELOPMENT installer artifact; it does not deploy a website, publish stable releases, run migrations or write accounting data.
+
+## GitHub auto-updates (development channel)
+
+In Desktop 0.2.4+, the app uses `new UpdateManager(new GithubSource("https://github.com/angsokhey11-cloud/big-brother-desktop", null, prerelease: true))`. The app checks once on startup after loading the Dashboard. Update discovery is quiet if none is available or Github is unreachable. It asks before downloading, shows download progress, and **requires a second explicit confirmation before restart**. `SetAutoApplyOnStartup(false)` prevents hidden auto-install of a downloaded package.
+
+Development package publication is controlled by the `desktop-release` branch and the separate `publish-desktop-github-dev.yml` workflow. It builds pinned frontend files and publishes the Velopack `releases.dev.json`, full/delta `.nupkg` and installer as a GitHub **prerelease**. Normal source changes on `main` only compile and upload CI artifacts, without being offered automatically to installed users.
+
+The current updater is **public development releases only**, not a stable staff release and not cryptographically code-signed. Public GitHub anonymously rate-limits update checks; one check per app launch minimizes this. Never store GitHub private access tokens in the Desktop app. Do not promote to stable until code signing, end-to-end permissions/database/CORS tests, release access controls and a rollback exercise are complete.
+
+Versions before 0.2.4 can be upgraded once with `tools/Bootstrap-GitHub-Updates.ps1`: it downloads the versioned package directly from GitHub Releases, checks the asset SHA256 and NUSPEC identity, and calls the already-installed Velopack updater without uninstalling. Subsequent updates are handled by the app.
