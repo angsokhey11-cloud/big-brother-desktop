@@ -76,6 +76,12 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
 
+      - name: Test Sales Support customer return navigation
+        shell: pwsh
+        run: |
+          node tests/sales_support_navigation_regression.js
+          if ($LASTEXITCODE -ne 0) { throw "Your Customer return navigation regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
