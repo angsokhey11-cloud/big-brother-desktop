@@ -19,6 +19,8 @@ internal sealed class WorkstationSettings
     public bool BrowserAddressBarVisible { get; set; } = true;
     public bool TelegramShortcutVisible { get; set; } = true;
     public string TelegramShortcutName { get; set; } = "Telegram Web";
+    // Browser positions in older versions were relative to the Invoice iframe.
+    public bool BrowserGlobalPositionMigrated { get; set; } = false;
 }
 
 internal static class SettingsStore
