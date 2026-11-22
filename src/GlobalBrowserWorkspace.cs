@@ -512,7 +512,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             BorderThickness = new Thickness(1),
             BorderBrush = Paint("#cbdff4"),
             Background = new LinearGradientBrush(
-                Paint("#ffffff").Color, Paint("#dceeff").Color,
+                Colors.White, Color.FromRgb(220, 238, 255),
                 new Point(0, 0), new Point(1, 1))
         };
         var heroGrid = new Grid();
