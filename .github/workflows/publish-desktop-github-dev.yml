@@ -76,6 +76,12 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
 
+      - name: Regression guard — release mouse capture outside BIG BROTHER Desktop
+        shell: pwsh
+        run: |
+          python tests/test_mouse_capture_release.py
+          if ($LASTEXITCODE -ne 0) { throw "Native mouse-capture cleanup regression failed" }
+
       - name: Test Sales Support customer return navigation
         shell: pwsh
         run: |

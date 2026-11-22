@@ -62,6 +62,9 @@ internal sealed class MainWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool AppendMenu(IntPtr menu, uint flags, nuint identifier, string? label);
     private bool _dragging;
+    private bool _resizing;
+    private Border? _dragSurface;
+    private Thumb? _resizeGrip;
     private Point _dragFrom;
     private Point _panelFrom;
 
@@ -161,6 +164,22 @@ internal sealed class MainWindow : Window
         // Explicit WPF taskbar/title-bar icon; EXE/installer have the same brand.
         Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/big-brother.ico", UriKind.Absolute));
         SourceInitialized += InstallNativeUpdateMenu;
+        // Desktop must never retain a browser-panel pointer capture when the
+        // user switches to Excel, Chrome, another program, or the taskbar.
+        Deactivated += (_, _) => ReleaseBrowserMouseCapture();
+        StateChanged += (_, _) =>
+        {
+            if (WindowState == WindowState.Minimized)
+                ReleaseBrowserMouseCapture();
+        };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape && (_dragging || _resizing))
+            {
+                ReleaseBrowserMouseCapture();
+                e.Handled = true;
+            }
+        };
 
         BuildWindow();
         Loaded += async (_, _) =>
@@ -175,6 +194,7 @@ internal sealed class MainWindow : Window
         };
         Closing += (_, _) =>
         {
+            ReleaseBrowserMouseCapture();
             RememberPanel();
             SettingsStore.Save(_preferences);
         };
@@ -292,11 +312,14 @@ internal sealed class MainWindow : Window
                     _body.ActualWidth > 0 && _body.ActualHeight > 0;
         if (!valid)
         {
+            // The Invoice iframe can disappear while the user is dragging or
+            // resizing its browser. Merely clearing _dragging leaves WPF
+            // holding mouse capture and can steal clicks from other apps.
+            ReleaseBrowserMouseCapture();
             if (_invoiceScopeActive && _panelOpen)
             {
                 RememberPanel();
                 _panelOpen = false;
-                _dragging = false;
             }
             _invoiceScopeActive = false;
             _overlay.Visibility = Visibility.Collapsed;
@@ -528,6 +551,9 @@ internal sealed class MainWindow : Window
             Background = Paint("#aec4de"),
             ToolTip = "Drag to resize this browser"
         };
+        _resizeGrip = grip;
+        grip.DragStarted += (_, _) => { _resizing = true; };
+        grip.LostMouseCapture += (_, _) => { _resizing = false; };
         grip.DragDelta += (_, e) =>
         {
             var minWidth = Math.Min(360, _overlay.ActualWidth - 18);
@@ -536,7 +562,12 @@ internal sealed class MainWindow : Window
             _browserPanel.Width = Bound(_browserPanel.Width + e.HorizontalChange, minWidth, maxWidth);
             _browserPanel.Height = Bound(_browserPanel.Height + e.VerticalChange, 220, maxHeight);
         };
-        grip.DragCompleted += (_, _) => RememberPanel();
+        grip.DragCompleted += (_, _) =>
+        {
+            _resizing = false;
+            if (grip.IsMouseCaptured) grip.ReleaseMouseCapture();
+            RememberPanel();
+        };
         Grid.SetColumn(grip, 1);
         foot.Children.Add(grip);
 
@@ -580,13 +611,14 @@ internal sealed class MainWindow : Window
 
     private void WirePanelDrag(Border surface)
     {
+        _dragSurface = surface;
         surface.MouseLeftButtonDown += (_, e) =>
         {
             if (e.LeftButton != MouseButtonState.Pressed || !_panelOpen) return;
-            _dragging = true;
+            _dragging = surface.CaptureMouse();
+            if (!_dragging) return;
             _dragFrom = e.GetPosition(_overlay);
             _panelFrom = new Point(Canvas.GetLeft(_browserPanel), Canvas.GetTop(_browserPanel));
-            surface.CaptureMouse();
             e.Handled = true;
         };
         surface.MouseMove += (_, e) =>
@@ -600,16 +632,37 @@ internal sealed class MainWindow : Window
             Canvas.SetTop(_browserPanel, Bound(y, 7, _overlay.ActualHeight - _browserPanel.Height - 7));
         };
         surface.MouseLeftButtonUp += (_, _) => EndPanelDrag(surface);
-        surface.LostMouseCapture += (_, _) => { _dragging = false; RememberPanel(); };
-        Deactivated += (_, _) => EndPanelDrag(surface);
+        // WPF can deliver the button-release outside the captured element.
+        // Explicitly release then rather than relying on MouseLeftButtonUp.
+        surface.AddHandler(Mouse.PreviewMouseUpOutsideCapturedElementEvent,
+            new MouseButtonEventHandler((_, _) => EndPanelDrag(surface)), true);
+        surface.LostMouseCapture += (_, _) =>
+        {
+            if (_dragging) RememberPanel();
+            _dragging = false;
+        };
     }
 
     private void EndPanelDrag(Border surface)
     {
-        if (!_dragging) return;
+        var wasDragging = _dragging;
         _dragging = false;
+        // Always release if captured, even if a previous scope change has
+        // already cleared the state flag.
         if (surface.IsMouseCaptured) surface.ReleaseMouseCapture();
-        RememberPanel();
+        if (wasDragging) RememberPanel();
+    }
+
+    private void ReleaseBrowserMouseCapture()
+    {
+        var remember = _dragging || _resizing;
+        _dragging = false;
+        _resizing = false;
+        if (_dragSurface?.IsMouseCaptured == true)
+            _dragSurface.ReleaseMouseCapture();
+        if (_resizeGrip?.IsMouseCaptured == true)
+            _resizeGrip.ReleaseMouseCapture();
+        if (remember) RememberPanel();
     }
 
     private static double Bound(double value, double minimum, double maximum) =>
@@ -805,7 +858,7 @@ internal sealed class MainWindow : Window
     {
         RememberPanel();
         _panelOpen = false;
-        _dragging = false;
+        ReleaseBrowserMouseCapture();
         _browserPanel.Visibility = Visibility.Collapsed;
         _bubble.Visibility = _invoiceScopeActive ? Visibility.Visible : Visibility.Collapsed;
         // Keep the same WebView2 instance alive: no Dispose, no Navigate,
