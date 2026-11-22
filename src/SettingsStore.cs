@@ -15,6 +15,8 @@ internal sealed class WorkstationSettings
     public double PanelWidth { get; set; } = 740;
     public double PanelHeight { get; set; } = 540;
     public List<string> Bookmarks { get; set; } = new();
+    public Dictionary<string, string> BookmarkTitles { get; set; } = new();
+    public bool BrowserAddressBarVisible { get; set; } = true;
 }
 
 internal static class SettingsStore
