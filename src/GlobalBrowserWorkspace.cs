@@ -1056,8 +1056,14 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         items.Insert(to, moving);
         _settings.BrowserShortcutOrder = items.Select(ShortcutKey).ToList();
         SettingsStore.Save(_settings);
-        RefreshShortcuts();
-        _status.Text = "Shortcut order saved";
+        // Do not remove any dragged WPF Buttons inside an active native
+        // DoDragDrop call. Rebuild after the drag gesture has unwound.
+        _owner.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closed) return;
+            RefreshShortcuts();
+            _status.Text = "Shortcut order saved";
+        }), DispatcherPriority.ContextIdle);
     }
 
     private void RefreshShortcuts()
