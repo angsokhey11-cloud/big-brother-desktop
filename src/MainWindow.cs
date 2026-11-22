@@ -47,6 +47,9 @@ internal sealed class MainWindow : Window
     // The embedded browser belongs to the Invoice Generator only. The browser
     // stays alive if the user switches accounting functions.
     private const int UpdateSystemMenuCommand = 0x1E00;
+    private static string DesktopTitle =>
+        "BIG BROTHER Desktop • v" +
+        (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "development");
     private const int LocalUpdateMenuCommand = 0x1E10;
     private const int WmSysCommand = 0x0112;
     private const uint MfSeparator = 0x0800;
@@ -147,7 +150,7 @@ internal sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "BIG BROTHER Desktop • Development";
+        Title = DesktopTitle;
         Width = 1380;
         Height = 880;
         MinWidth = 840;
@@ -167,9 +170,7 @@ internal sealed class MainWindow : Window
             // check is quiet when offline or already current, and never blocks
             // regular accounting work or downloads without a user decision.
             await Task.Delay(2200);
-            await UpdateService.CheckForUpdatesAsync(this,
-                status => Title = status.Contains("Downloading")
-                    ? "BIG BROTHER Desktop • Updating" : "BIG BROTHER Desktop",
+            await UpdateService.CheckForUpdatesAsync(this, ShowUpdateStatus,
                 quietIfCurrent: true);
         };
         Closing += (_, _) =>
@@ -278,7 +279,7 @@ internal sealed class MainWindow : Window
                  ((wParam.ToInt64() & 0xFFF0) == LocalUpdateMenuCommand))
         {
             handled = true;
-            _ = UpdateService.PromptLocalUpdateAsync(this, message => _workspaceStatus.Text = message);
+            _ = UpdateService.PromptLocalUpdateAsync(this, ShowUpdateStatus);
         }
         return IntPtr.Zero;
     }
@@ -706,9 +707,19 @@ internal sealed class MainWindow : Window
         _workspaceStatus.Text = "Loading installed Dashboard…";
     }
 
+    private void ShowUpdateStatus(string status)
+    {
+        _workspaceStatus.Text = status;
+        // The Dashboard remains edge-to-edge. The native Windows titlebar
+        // gives users lightweight update feedback without an extra app header.
+        var inProgress = status.Contains("Checking", StringComparison.OrdinalIgnoreCase) ||
+                         status.Contains("Downloading", StringComparison.OrdinalIgnoreCase);
+        Title = inProgress ? DesktopTitle + " • " + status : DesktopTitle;
+    }
+
     private async Task CheckUpdatesAsync()
     {
-        await UpdateService.CheckForUpdatesAsync(this, message => _workspaceStatus.Text = message);
+        await UpdateService.CheckForUpdatesAsync(this, ShowUpdateStatus);
     }
 
     private async Task OpenBrowserPanelAsync()

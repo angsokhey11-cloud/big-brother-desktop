@@ -19,3 +19,11 @@ Not a stable production release; full Cloud authentication and accounting workfl
 - Use high-contrast simplified icon frames at 16–32px and full approved BB artwork at larger sizes.
 - Apply the icon to the native EXE, Windows taskbar/title bar and shortcuts, large offline Setup.exe, and lightweight online installer EXE.
 - No changes to any invoice, stock, cash, banking, receivable, or database code.
+
+## BIG BROTHER Desktop v0.2.7 — Updater regression test
+
+- **Fix**: Previously downloaded updates are recognized on subsequent launches and can be installed without re-downloading.
+- **Clarity**: Update prompt shows installed and new version numbers; native Windows title bar displays current Desktop version and download/check status.
+- **Safe operation**: Updates still require explicit download approval and explicit install/restart confirmation.
+- **Scope**: Desktop shell/updater only. No change to the 32 pinned accounting modules, Supabase schema, stock, banking, A/R, invoices, or accounting values.
+- **Verification**: v0.2.6 → v0.2.7 will be tested on the real installed app. Production staff release is not yet approved.

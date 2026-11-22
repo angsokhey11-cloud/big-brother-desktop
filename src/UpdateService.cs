@@ -60,6 +60,41 @@ internal static class UpdateService
                     GithubReleaseRepository, accessToken: null, prerelease: true))
                 : new UpdateManager(localUpdateFolder);
 
+            if (!manager.IsInstalled)
+            {
+                status("Desktop update check requires an installed application");
+                if (!quietIfCurrent)
+                    MessageBox.Show(owner,
+                        "This copy of BIG BROTHER Desktop was not started from a Velopack installation. " +
+                        "Open it from the Windows Start menu to check for updates.",
+                        "BIG BROTHER Desktop", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // Bug fix: an update downloaded earlier but deliberately postponed
+            // is already ready locally. Do not force the user to download it
+            // again, even if GitHub is unavailable on this launch.
+            if (manager.UpdatePendingRestart is { } prepared)
+            {
+                var pendingVersion = prepared.Version.ToString();
+                status("BIG BROTHER Desktop v" + pendingVersion + " is ready to install");
+                if (MessageBox.Show(owner,
+                    "BIG BROTHER Desktop v" + pendingVersion +
+                    " is already downloaded on this PC.\n\n" +
+                    "Have you saved unfinished invoices, cash collections, and other work? " +
+                    "Choose Yes to install and restart now, or No to keep working.",
+                    "BIG BROTHER Desktop — Update Ready",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    manager.ApplyUpdatesAndRestart(prepared);
+                }
+                else
+                {
+                    status("Previously downloaded update retained for later");
+                }
+                return;
+            }
+
             status("Checking for BIG BROTHER Desktop updates…");
             var update = await manager.CheckForUpdatesAsync();
             if (update == null)
@@ -71,8 +106,12 @@ internal static class UpdateService
                 return;
             }
 
-            status("New BIG BROTHER Desktop update available");
-            var message = "A newer BIG BROTHER Desktop DEVELOPMENT update is available on GitHub.\n\n" +
+            var newVersion = update.TargetFullRelease.Version.ToString();
+            var currentVersion = manager.CurrentVersion?.ToString() ?? "unknown";
+            status("BIG BROTHER Desktop v" + newVersion + " available");
+            var message = "BIG BROTHER Desktop development update available!\n\n" +
+                          "Installed: v" + currentVersion + "\n" +
+                          "New: v" + newVersion + "\n\n" +
                           "Download the checksum-verified Desktop update package now? " +
                           "You can continue working while it downloads. " +
                           "The app will ask separately before installing and restarting.";
@@ -91,7 +130,7 @@ internal static class UpdateService
             };
             var progressLabel = new TextBlock
             {
-                Text = "Downloading BIG BROTHER Desktop update from GitHub… 0%",
+                Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from GitHub… 0%",
                 Margin = new Thickness(18, 17, 18, 2),
                 Foreground = Brushes.DarkSlateGray,
                 TextWrapping = TextWrapping.Wrap
@@ -126,7 +165,7 @@ internal static class UpdateService
                     _ = dialog.Dispatcher.BeginInvoke(() =>
                     {
                         progress.Value = Math.Clamp(p, 0, 100);
-                        progressLabel.Text = "Downloading BIG BROTHER Desktop update from GitHub… " +
+                        progressLabel.Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from GitHub… " +
                                              Math.Clamp(p, 0, 100) + "%";
                     });
                 });
@@ -137,9 +176,10 @@ internal static class UpdateService
                 dialog.Close();
             }
 
-            status("Update downloaded; waiting for your approval to restart");
+            status("BIG BROTHER Desktop v" + newVersion + " downloaded; restart requires approval");
             if (MessageBox.Show(owner,
-                "The Desktop update is ready.\n\nHave you saved all unfinished invoices, cash collections, and other accounting work? " +
+                "BIG BROTHER Desktop v" + newVersion +
+                " is downloaded and ready to install.\n\nHave you saved all unfinished invoices, cash collections, and other accounting work? " +
                 "Choose Yes to install and restart now, or No to continue working on the current version.",
                 "BIG BROTHER Desktop — Install and Restart",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
@@ -149,7 +189,7 @@ internal static class UpdateService
             }
             else
             {
-                status("Update saved locally; restart postponed");
+                status("BIG BROTHER Desktop v" + newVersion + " saved locally; install postponed");
             }
         }
         catch (Exception error)

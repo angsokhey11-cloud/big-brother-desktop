@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.2.6
+APPROVED_VERSION=0.2.7
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -32,3 +32,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Verified Windows online-installer build, icon-asset SHA256 integrity check, multi-resolution ICO generation, complete 32-module Desktop build and package succeeded on main.
 - No Supabase schema or accounting-data changes and no changes to Cloud/PWA function repositories.
 - Development prerelease only; staff production use remains unapproved until full acceptance testing.
+
+## Approved v0.2.7 — updater regression
+
+- Recognizes an already downloaded-but-postponed Desktop update on next launch without downloading it again.
+- Shows installed and available version numbers in the new-update prompt; installed app version is visible in normal Windows title bar, without an extra custom header.
+- Upgrade remains consent-driven: user approves download and separately approves install/restart after saving unfinished accounting work.
+- Full Windows CI passed: 32 pinned accounting module assets, native app compilation, installer packaging and essential files verified (run 44995896855).
+- Only updater/desktop shell code changed; no accounting module, bank, sales, A/R, inventory, COGS or database changes.
+- Publish on development GitHub prerelease channel for user-controlled acceptance test; **not** a stable staff release.
