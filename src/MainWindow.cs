@@ -691,11 +691,8 @@ internal sealed class MainWindow : Window
         Grid.SetRow(tools, 2);
         panelGrid.Children.Add(tools);
 
-        var telegram = MakeButton("Telegram Web", "#e3f0fe", "#23558a", 11, 119);
-        telegram.Click += async (_, _) => await NavigateBrowserAsync(TelegramUrl);
-        tools.Children.Add(telegram);
-        DockPanel.SetDock(telegram, Dock.Left);
-
+        // Both Telegram Web and saved chats use the same shortcut controls.
+        // Users can remove or rename the default Telegram Web button too.
         // New bookmarks appear as their own scrollable buttons beside Telegram.
         // The row contains shortcuts only: no Save, Rename, or dropdown controls.
         var shortcutScroller = new ScrollViewer
@@ -768,11 +765,16 @@ internal sealed class MainWindow : Window
 
     private void RefreshBookmarks()
     {
-        // The old URL list is kept for upgrade compatibility, but each website
-        // is now rendered as a directly clickable button (not a ComboBox option).
+        // Retain existing saved URL and names. Render the optional default
+        // Telegram button and every saved page as one consistent shortcut row.
         foreach (var timer in _shortcutClickTimers) timer.Stop();
         _shortcutClickTimers.Clear();
         _shortcutButtons.Children.Clear();
+
+        if (_preferences.TelegramShortcutVisible)
+            AddShortcutButton(new BookmarkItem(TelegramUrl,
+                string.IsNullOrWhiteSpace(_preferences.TelegramShortcutName)
+                ? "Telegram Web" : _preferences.TelegramShortcutName), isBuiltIn: true);
 
         foreach (var savedUrl in (_preferences.Bookmarks ?? new List<string>()).Take(15))
         {
@@ -781,51 +783,64 @@ internal sealed class MainWindow : Window
                 _preferences.BookmarkTitles.TryGetValue(savedUrl, out var savedName) &&
                 !string.IsNullOrWhiteSpace(savedName)
                 ? savedName : uri.Host;
-            var item = new BookmarkItem(savedUrl, name);
-            var button = MakeButton(name, "#e3f0fe", "#23558a", 11);
-            button.MinWidth = 76;
-            button.MaxWidth = 190;
-            button.ToolTip = "Click to open • triple-click to rename • right-click to manage\n" +
-                uri.AbsoluteUri;
-            button.Content = new TextBlock
-            {
-                Text = name, TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            // Defer a normal click briefly so three quick clicks can rename
-            // WITHOUT opening the website on click one or two.
-            var pendingClicks = 0;
-            var clickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
-            _shortcutClickTimers.Add(clickTimer);
-            clickTimer.Tick += async (_, _) =>
-            {
-                clickTimer.Stop();
-                pendingClicks = 0;
-                await NavigateBrowserAsync(item.Url);
-            };
-            button.Click += (_, _) =>
-            {
-                clickTimer.Stop();
-                pendingClicks++;
-                if (pendingClicks >= 3)
-                {
-                    pendingClicks = 0;
-                    RenameBookmark(item);
-                }
-                else clickTimer.Start();
-            };
-
-            var menu = new ContextMenu();
-            var rename = new MenuItem { Header = "Rename shortcut (triple-click)" };
-            rename.Click += (_, _) => { clickTimer.Stop(); RenameBookmark(item); };
-            menu.Items.Add(rename);
-            var remove = new MenuItem { Header = "Remove shortcut" };
-            remove.Click += (_, _) => { clickTimer.Stop(); RemoveBookmark(item); };
-            menu.Items.Add(remove);
-            button.ContextMenu = menu;
-            _shortcutButtons.Children.Add(button);
+            AddShortcutButton(new BookmarkItem(savedUrl, name), isBuiltIn: false);
         }
+    }
+
+    private void AddShortcutButton(BookmarkItem item, bool isBuiltIn)
+    {
+        var button = MakeButton(item.Name, "#e3f0fe", "#23558a", 11);
+        button.MinWidth = 76;
+        button.MaxWidth = 190;
+        button.ToolTip = "Click to open • triple-click to rename • right-click to manage\n" + item.Url;
+        button.Content = new TextBlock
+        {
+            Text = item.Name,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        // Distinguish a deliberate triple-click from ordinary navigation.
+        // A quick double-click must never navigate to the wrong saved chat.
+        var pendingClicks = 0;
+        var clickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
+        _shortcutClickTimers.Add(clickTimer);
+        clickTimer.Tick += async (_, _) =>
+        {
+            clickTimer.Stop();
+            pendingClicks = 0;
+            await NavigateBrowserAsync(item.Url);
+        };
+        button.Click += (_, _) =>
+        {
+            clickTimer.Stop();
+            pendingClicks++;
+            if (pendingClicks >= 3)
+            {
+                pendingClicks = 0;
+                RenameBookmark(item, isBuiltIn);
+            }
+            else clickTimer.Start();
+        };
+        var menu = new ContextMenu();
+        var rename = new MenuItem { Header = "Rename shortcut (triple-click)" };
+        rename.Click += (_, _) =>
+        {
+            clickTimer.Stop();
+            pendingClicks = 0;
+            RenameBookmark(item, isBuiltIn);
+        };
+        menu.Items.Add(rename);
+        var remove = new MenuItem { Header = "Remove shortcut" };
+        remove.Click += (_, _) =>
+        {
+            clickTimer.Stop();
+            pendingClicks = 0;
+            RemoveBookmark(item, isBuiltIn);
+        };
+        menu.Items.Add(remove);
+        button.ContextMenu = menu;
+        _shortcutButtons.Children.Add(button);
     }
 
     private bool? ShowBrowserDialog(Window dialog)
@@ -923,18 +938,22 @@ internal sealed class MainWindow : Window
         _notice.Text = "Saved shortcut: " + chosen;
     }
 
-    private void RenameBookmark(BookmarkItem item)
+    private void RenameBookmark(BookmarkItem item, bool isBuiltIn)
     {
         var newName = PromptBookmarkName("Rename website shortcut", item.Name);
         if (newName is null) return;
-        _preferences.BookmarkTitles ??= new Dictionary<string, string>();
-        _preferences.BookmarkTitles[item.Url] = newName;
+        if (isBuiltIn) _preferences.TelegramShortcutName = newName;
+        else
+        {
+            _preferences.BookmarkTitles ??= new Dictionary<string, string>();
+            _preferences.BookmarkTitles[item.Url] = newName;
+        }
         RefreshBookmarks();
         SettingsStore.Save(_preferences);
         _notice.Text = "Renamed shortcut to " + newName;
     }
 
-    private void RemoveBookmark(BookmarkItem item)
+    private void RemoveBookmark(BookmarkItem item, bool isBuiltIn)
     {
         var confirmation = new Window
         {
@@ -964,9 +983,18 @@ internal sealed class MainWindow : Window
         layout.Children.Add(buttons);
         confirmation.Content = layout;
         if (ShowBrowserDialog(confirmation) != true) return;
-        _preferences.Bookmarks?.RemoveAll(x => string.Equals(x, item.Url,
-            StringComparison.Ordinal));
-        _preferences.BookmarkTitles?.Remove(item.Url);
+        if (isBuiltIn)
+        {
+            // Hide only the optional default shortcut, never remove the
+            // actual browser login, saved chat buttons or WebView2 profile.
+            _preferences.TelegramShortcutVisible = false;
+        }
+        else
+        {
+            _preferences.Bookmarks?.RemoveAll(x => string.Equals(x, item.Url,
+                StringComparison.Ordinal));
+            _preferences.BookmarkTitles?.Remove(item.Url);
+        }
         RefreshBookmarks();
         SettingsStore.Save(_preferences);
         _notice.Text = "Removed shortcut: " + item.Name;
@@ -1231,8 +1259,35 @@ internal sealed class MainWindow : Window
             return;
         }
 
-        // The external website is a TOP-LEVEL document, not an iframe.
-        _browserView.CoreWebView2.Navigate(url.AbsoluteUri);
+        var web = _browserView.CoreWebView2;
+        // A saved Telegram chat often differs only by #chat-id. Calling
+        // CoreWebView2.Navigate() for every click reloads Telegram's whole
+        // SPA, which can restore its home/chat-list route and discard the
+        // requested chat. Switch the fragment INSIDE the running document.
+        if (SettingsStore.TryWebAddress(web.Source, out var current) &&
+            url.Fragment.Length > 0 &&
+            string.Equals(current.GetLeftPart(UriPartial.Query),
+                url.GetLeftPart(UriPartial.Query), StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                if (!string.Equals(current.Fragment, url.Fragment, StringComparison.Ordinal))
+                {
+                    var fragmentLiteral = JsonSerializer.Serialize(url.Fragment);
+                    await web.ExecuteScriptAsync("window.location.hash = " +
+                        fragmentLiteral + ";");
+                }
+                _notice.Text = "Opening saved page in current browser session";
+                return;
+            }
+            catch (InvalidOperationException)
+            {
+                // The page may be transitioning; fall back to regular
+                // navigation if there is no active script context.
+            }
+        }
+        // Different sites or documents still open as top-level pages.
+        web.Navigate(url.AbsoluteUri);
         _notice.Text = "Navigating to " + url.Host + "…";
     }
 

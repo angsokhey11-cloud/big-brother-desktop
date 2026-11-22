@@ -17,6 +17,8 @@ internal sealed class WorkstationSettings
     public List<string> Bookmarks { get; set; } = new();
     public Dictionary<string, string> BookmarkTitles { get; set; } = new();
     public bool BrowserAddressBarVisible { get; set; } = true;
+    public bool TelegramShortcutVisible { get; set; } = true;
+    public string TelegramShortcutName { get; set; } = "Telegram Web";
 }
 
 internal static class SettingsStore
