@@ -68,7 +68,7 @@ jobs:
           gh release download desktop-dev-v0.2.4 --repo $env:GITHUB_REPOSITORY --pattern 'BigBrother.Desktop-dev-Setup.exe' --dir installer-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Could not fetch approved previous setup for path check' }
           $setup = (Resolve-Path 'installer-smoke/BigBrother.Desktop-dev-Setup.exe').Path
-          $custom = Join-Path $env:RUNNER_TEMP 'BIG-BROTHER-Custom-Drive-Install'
+          $custom = Join-Path $env:RUNNER_TEMP 'BIG BROTHER Desktop Custom Folder'
           # Real online wizard probes/creates this directory before setup.
           New-Item -ItemType Directory -Force $custom | Out-Null
           $proc = Start-Process -FilePath $setup -ArgumentList @('--silent','--installto', ('"' + $custom + '"')) -Wait -PassThru
