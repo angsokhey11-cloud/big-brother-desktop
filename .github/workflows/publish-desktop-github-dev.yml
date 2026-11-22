@@ -113,7 +113,6 @@ jobs:
           dotnet tool install --global vpk --version 1.2.161
           if ($LASTEXITCODE -ne 0) { throw 'Velopack CLI installation failed' }
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk --version
 
       - name: Retrieve previous published dev release for possible small delta update
         shell: pwsh
