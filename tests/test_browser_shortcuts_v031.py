@@ -25,6 +25,9 @@ checks={
         and "_settings.TelegramShortcutName = chosen;" in browser,
     "Telegram Web A bootstrap reloading": "window.history.replaceState(window.history.state" in browser
         and "window.location.reload();" in browser,
+    "Shortcut strip collapses without deleting bookmarks": "private void SetShortcutVisibility()" in browser
+        and "_shortcutScroller.Visibility = expanded" in browser
+        and "SettingsStore.Save(_settings);" in browser,
     "URL bar collapse preserved": "SetAddressVisibility();" in browser
         and "BrowserAddressBarVisible" in browser,
     "Existing persistent WebView2 profile reused": "SettingsStore.BrowserProfile" in browser,

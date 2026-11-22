@@ -43,6 +43,9 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private Task<CoreWebView2Environment>? _environmentTask;
     private BrowserTab? _active;
     private RowDefinition? _addressRowDefinition;
+    private RowDefinition? _shortcutRowDefinition;
+    private ScrollViewer? _shortcutScroller;
+    private Button? _shortcutToggle;
     private Grid? _addressRow;
     private Thumb? _resizeGrip;
     private bool _panelOpen;
@@ -186,7 +189,8 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(37) });
         _addressRowDefinition = new RowDefinition { Height = new GridLength(43) };
         _layout.RowDefinitions.Add(_addressRowDefinition);
-        _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(43) });
+        _shortcutRowDefinition = new RowDefinition { Height = new GridLength(43) };
+        _layout.RowDefinitions.Add(_shortcutRowDefinition);
         _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(29) });
 
@@ -324,16 +328,38 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         urlRow.Children.Add(save);
         SetAddressVisibility();
 
+        var shortcutBar = new DockPanel
+        {
+            LastChildFill = true,
+            Background = Paint("#f4f7fc"),
+            Margin = new Thickness(8, 1, 8, 1)
+        };
+        // The toggle remains visible while collapsed; only the saved website
+        // buttons disappear. It is separate from the Home page content.
+        var shortcutsToggle = Button("Shortcuts ▴", "#e4eefb", "#245b95", 106);
+        shortcutsToggle.ToolTip = "Show or hide the saved website shortcut strip";
+        shortcutsToggle.Click += (_, _) =>
+        {
+            _settings.BrowserShortcutsExpanded = !_settings.BrowserShortcutsExpanded;
+            SetShortcutVisibility();
+            SettingsStore.Save(_settings);
+        };
+        DockPanel.SetDock(shortcutsToggle, Dock.Left);
+        shortcutBar.Children.Add(shortcutsToggle);
+        _shortcutToggle = shortcutsToggle;
         var shortcutRow = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Background = Paint("#f4f7fc"),
-            Margin = new Thickness(9, 1, 9, 1),
+            Margin = new Thickness(4, 1, 0, 1),
             Content = _shortcutButtons
         };
-        Grid.SetRow(shortcutRow, 3);
-        _layout.Children.Add(shortcutRow);
+        _shortcutScroller = shortcutRow;
+        shortcutBar.Children.Add(shortcutRow);
+        Grid.SetRow(shortcutBar, 3);
+        _layout.Children.Add(shortcutBar);
+        SetShortcutVisibility();
 
         BuildBrandedHome();
         _content.Children.Add(_home);
@@ -611,6 +637,19 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     }
 
     private Button? _urlToggle;
+
+    private void SetShortcutVisibility()
+    {
+        if (_shortcutRowDefinition is null ||
+            _shortcutScroller is null || _shortcutToggle is null) return;
+        var expanded = _settings.BrowserShortcutsExpanded;
+        _shortcutScroller.Visibility = expanded
+            ? Visibility.Visible : Visibility.Collapsed;
+        _shortcutRowDefinition.Height = new GridLength(expanded ? 43 : 35);
+        _shortcutToggle.Content = expanded ? "Shortcuts ▴" : "Shortcuts ▾";
+        _shortcutToggle.ToolTip = expanded
+            ? "Hide saved website shortcuts" : "Show saved website shortcuts";
+    }
 
     private void SetAddressVisibility()
     {

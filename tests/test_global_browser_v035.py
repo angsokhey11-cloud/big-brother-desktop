@@ -45,6 +45,12 @@ checks={
     "Old Invoice-relative window position migrated once":
         "BrowserGlobalPositionMigrated" in b
         and "public bool BrowserGlobalPositionMigrated" in s,
+    "Saved shortcuts strip is collapsible and keeps its toggle visible": 
+        "SetShortcutVisibility();" in b
+        and "var shortcutBar = new DockPanel" in b
+        and "private void SetShortcutVisibility()" in b
+        and "BrowserShortcutsExpanded" in b
+        and "public bool BrowserShortcutsExpanded { get; set; } = true;" in s,
     "Home is branded, not a duplicate bookmark grid":
         "private void BuildBrandedHome()" in b
         and "private static Canvas DairyArtwork()" in b
