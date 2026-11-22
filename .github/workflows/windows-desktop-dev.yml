@@ -78,6 +78,12 @@ jobs:
           python tests/test_global_browser_v035.py
           if ($LASTEXITCODE -ne 0) { throw "Global browser regression failed" }
 
+      - name: Verify desktop display name without changing update identity
+        shell: pwsh
+        run: |
+          python tests/test_desktop_display_name.py
+          if ($LASTEXITCODE -ne 0) { throw "Desktop display naming regression failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
@@ -133,7 +139,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.6 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop (Development)" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.7 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }
