@@ -48,6 +48,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private RowDefinition? _addressRowDefinition;
     private RowDefinition? _shortcutRowDefinition;
     private ScrollViewer? _shortcutScroller;
+    private ScrollViewer? _tabScroller;
     private Button? _shortcutToggle;
     private Grid? _addressRow;
     private Thumb? _resizeGrip;
@@ -190,7 +191,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private void BuildBrowserPanel()
     {
         _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(43) });
-        _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(37) });
+        _layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(35) });
         _addressRowDefinition = new RowDefinition { Height = new GridLength(43) };
         _layout.RowDefinitions.Add(_addressRowDefinition);
         _shortcutRowDefinition = new RowDefinition { Height = new GridLength(43) };
@@ -206,21 +207,24 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         Grid.SetRow(title, 0);
         _layout.Children.Add(title);
 
-        var close = Button("×", "#a83c49", "#ffffff", 37);
+        var close = Button("×", "#a83c49", "#ffffff", 33);
+        close.Margin = new Thickness(0, 0, 3, 0);
         close.ToolTip = "Close browser completely (end all tabs)";
         close.FontSize = 18;
         close.Click += (_, _) => CloseAll();
         DockPanel.SetDock(close, Dock.Right);
         title.Children.Add(close);
 
-        var minimize = Button("—", "#255b9f", "#ffffff", 37);
+        var minimize = Button("—", "#255b9f", "#ffffff", 33);
+        minimize.Margin = new Thickness(0, 0, 3, 0);
         minimize.ToolTip = "Minimize to the circle (keep all tabs open)";
         minimize.FontSize = 18;
         minimize.Click += (_, _) => Minimize();
         DockPanel.SetDock(minimize, Dock.Right);
         title.Children.Add(minimize);
 
-        var toggle = Button("URL ▴", "#255b9f", "#ffffff", 67);
+        var toggle = Button("URL ▴", "#255b9f", "#ffffff", 58);
+        toggle.Margin = new Thickness(0, 0, 3, 0);
         toggle.ToolTip = "Show or hide address bar";
         toggle.Click += (_, _) =>
         {
@@ -232,12 +236,38 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         title.Children.Add(toggle);
         _urlToggle = toggle;
 
+        // The native browser title is intentionally omitted. Keep shortcut
+        // and tab actions on the single compact blue toolbar even when the
+        // URL row or saved-shortcut strip is collapsed.
+        var shortcutsToggle = Button("Shortcuts ▴", "#255b9f", "#ffffff", 92);
+        shortcutsToggle.Margin = new Thickness(0, 0, 3, 0);
+        shortcutsToggle.ToolTip = "Show or hide the saved website shortcut strip";
+        shortcutsToggle.Click += (_, _) =>
+        {
+            _settings.BrowserShortcutsExpanded = !_settings.BrowserShortcutsExpanded;
+            SetShortcutVisibility();
+            SettingsStore.Save(_settings);
+        };
+        DockPanel.SetDock(shortcutsToggle, Dock.Right);
+        title.Children.Add(shortcutsToggle);
+        _shortcutToggle = shortcutsToggle;
+
+        var newTab = Button("+ New Tab", "#255b9f", "#ffffff", 88);
+        newTab.Margin = new Thickness(0, 0, 3, 0);
+        newTab.ToolTip = "Create a fresh Home tab";
+        newTab.Click += (_, _) => CreateTab();
+        DockPanel.SetDock(newTab, Dock.Right);
+        title.Children.Add(newTab);
+
+        // A small grip, not a title, preserves the existing bounded WPF
+        // DragMove window behavior without adding click-blocking overlays.
         var drag = new Border
         {
             Background = Brushes.Transparent,
             Padding = new Thickness(12, 0, 0, 0),
             Cursor = Cursors.SizeAll,
-            Child = Label("BIG BROTHER Browser   •   drag to move", 13, "#ffffff", true)
+            ToolTip = "Hold and drag here to move this browser",
+            Child = Label("⋮⋮", 19, "#d8e8fa", true)
         };
         drag.MouseLeftButtonDown += (_, e) =>
         {
@@ -248,36 +278,29 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         };
         title.Children.Add(drag);
 
+        // The tab strip now owns its entire row. No visible scrollbar:
+        // mouse-wheel movement scrolls tab headers horizontally.
         var tabsRow = new DockPanel { Background = Paint("#e9f0f9"), LastChildFill = true };
         Grid.SetRow(tabsRow, 1);
         _layout.Children.Add(tabsRow);
-        var newTab = Button("+ New Tab", "#ffffff", "#174888", 100);
-        newTab.ToolTip = "Create a fresh Home tab";
-        newTab.Click += (_, _) => CreateTab();
-        DockPanel.SetDock(newTab, Dock.Right);
-        tabsRow.Children.Add(newTab);
-
-        // This toggle is intentionally in the always-visible tab row, so
-        // collapsing shortcuts reclaims the ENTIRE row's vertical space.
-        var shortcutsToggle = Button("Shortcuts ▴", "#e4eefb", "#245b95", 106);
-        shortcutsToggle.ToolTip = "Show or hide the saved website shortcut strip";
-        shortcutsToggle.Click += (_, _) =>
-        {
-            _settings.BrowserShortcutsExpanded = !_settings.BrowserShortcutsExpanded;
-            SetShortcutVisibility();
-            SettingsStore.Save(_settings);
-        };
-        DockPanel.SetDock(shortcutsToggle, Dock.Right);
-        tabsRow.Children.Add(shortcutsToggle);
-        _shortcutToggle = shortcutsToggle;
 
         var tabScroll = new ScrollViewer
         {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Margin = new Thickness(5, 2, 0, 0),
-            Content = _tabButtons
+            Margin = new Thickness(5, 2, 5, 1),
+            Content = _tabButtons,
+            ToolTip = "Use mouse wheel to scroll through open tabs"
         };
+        tabScroll.PreviewMouseWheel += (_, e) =>
+        {
+            if (tabScroll.ScrollableWidth <= 0) return;
+            var next = Math.Clamp(tabScroll.HorizontalOffset -
+                (e.Delta / 120.0) * 110.0, 0, tabScroll.ScrollableWidth);
+            tabScroll.ScrollToHorizontalOffset(next);
+            e.Handled = true;
+        };
+        _tabScroller = tabScroll;
         tabsRow.Children.Add(tabScroll);
 
         var urlRow = new Grid { Margin = new Thickness(9, 4, 9, 4) };
@@ -856,6 +879,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
     private void RenderTabs()
     {
         _tabButtons.Children.Clear();
+        StackPanel? activeTabHeader = null;
         foreach (var tab in _tabs)
         {
             var group = new StackPanel { Orientation = Orientation.Horizontal };
@@ -874,7 +898,17 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             close.Click += (_, _) => CloseTab(tab);
             group.Children.Add(close);
             _tabButtons.Children.Add(group);
+            if (isCurrent) activeTabHeader = group;
         }
+
+        // A newly added or selected tab must be visible even if the tab
+        // scrollbar itself is hidden. Keep manual wheel scrolling available.
+        var header = activeTabHeader;
+        _tabScroller?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (header is not null && _tabButtons.Children.Contains(header))
+                header.BringIntoView();
+        }), DispatcherPriority.Loaded);
     }
 
     private void CloseTab(BrowserTab tab)
