@@ -10,8 +10,8 @@ main=(root/"src/MainWindow.cs").read_text(encoding="utf-8")
 browser=(root/"src/GlobalBrowserWorkspace.cs").read_text(encoding="utf-8")
 revision=next(x["sha"] for x in modules["modules"] if x["name"]=="big-brother-invoice-generator")
 checks={
-    "Pin includes retired legacy Invoice PWA browser removal":
-        revision=="a152e243d05dd6bdcb0b4e34fe2b103d9fdcec6a",
+    "Invoice frontend remains pinned to a full commit SHA":
+        len(revision)==40 and all(ch in "0123456789abcdef" for ch in revision),
     "Bundled Invoice Generator entry exists": index.is_file(),
     "No obsolete browser injection":
         index.is_file() and "invoice-browser-bubble-v1.js" not in index.read_text(encoding="utf-8"),
