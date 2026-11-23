@@ -126,6 +126,12 @@ jobs:
           python tests/test_telegram_manager_desktop_origin_v0314.py
           if ($LASTEXITCODE -ne 0) { throw "Telegram Manager Desktop origin routing regression failed" }
 
+      - name: Guard Bank Review KHQR Hash vs merchant STAND
+        shell: pwsh
+        run: |
+          python tests/test_bank_khqr_stand_bundled_v0315.py
+          if ($LASTEXITCODE -ne 0) { throw "Bank Review STAND-identifier safeguard regression failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
@@ -181,7 +187,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.14 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.15 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }

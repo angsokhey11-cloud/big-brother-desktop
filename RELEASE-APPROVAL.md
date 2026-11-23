@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.14
+APPROVED_VERSION=0.3.15
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -209,3 +209,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Keep all 32 accounting module pinned revisions unchanged from v0.3.13. No database, transactions, customer balance, bank register, local brain or profile changes.
 - Windows CI build **45153134142** passed 32-module bundling, new Telegram Manager local-origin regression, native UI guards, .NET 10 compilation and Velopack installer packaging.
 - Approved for consent-controlled internal Desktop development prerelease only. Real Windows verification of Telegram Manager tool loading, return navigation, login, and permission enforcement is still required before staff rollout.
+
+## Approved v0.3.15 — Reject shared merchant STAND IDs in Bank Review
+
+- In a Cambodian KHQR notification, STAND is a reused merchant terminal identifier, not an individual transaction reference. The correct transaction reference is the bank's printed Hash (or an explicit valid reference).
+- Bank Assistant Supabase Edge Function version 75 was separately deployed and verified against the exact provided Khmer notification. It keeps the Hash distinct from STAND, refuses to reuse the STAND as the transaction ID, and treats ambiguous numeric KHQR references as needing human review.
+- Repin only big-brother-notification-center at 3923939f778d26d3af42b3991f52d93ea1765e8b in the Desktop's 32 pinned accounting frontends. The Cloud review UI and installed Desktop review screens now flag long numeric KHQR references and explain that STAND must not be registered.
+- All other 31 frontend revision pins, Supabase data/schema, financial logic, bank balances, payments, A/R, warehouse, customer records and Telegram user settings remain unchanged.
+- Historic payment PAY-3402 uses the supplied shared STAND 0001037221 as its transaction ID; this update does NOT change historical payments, and the true reference must be independently verified before any correction.
+- Windows development CI **45164619712** passed the newly bundled KHQR reference guard, 32-module checks, native browser/ghost-click safeguards, .NET compilation, Velopack Windows installer packaging.
+- This remains an internal consent-controlled development prerelease. Real Windows bank-review UI acceptance and finance-team validation are required before staff rollout.
