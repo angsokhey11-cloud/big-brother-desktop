@@ -64,6 +64,25 @@ def patch_desktop_sales_support_navigation(repo: str, relative: str, data: str) 
     )
 
 
+# Notification Center's Telegram Manager tool URLs are constructed at
+# runtime from a host-only TOOL_ORIGIN constant (without a trailing slash).
+# The generic static GitHub Pages URL rewrite intentionally cannot match it.
+# In the installed Desktop, all admin tools live at app.bigbrother.test,
+# while access to GitHub Pages is blocked. Keep the exact tool allow-list,
+# origin gate, scripts and Cloud/PWA repository untouched.
+def patch_desktop_telegram_tool_origin(repo: str, relative: str, data: str) -> str:
+    if repo != "big-brother-notification-center" or relative != "app.js":
+        return data
+    original = "const TOOL_ORIGIN = 'https://angsokhey11-cloud.github.io';"
+    local = "const TOOL_ORIGIN = 'https://app.bigbrother.test';"
+    if data.count(original) != 1:
+        raise RuntimeError(
+            "Telegram Manager approved-tool origin marker changed; "
+            "refusing to package potentially broken Desktop tool routing"
+        )
+    return data.replace(original, local, 1)
+
+
 def bundle() -> None:
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     owner = lock["owner"]
@@ -122,6 +141,9 @@ def bundle() -> None:
                     # WebView2 static host mapping need not serve a directory index.
                     data = root_pattern.sub(lambda m: m.group(1) + "index.html", data)
                     data = patch_desktop_sales_support_navigation(
+                        name, rel.as_posix(), data
+                    )
+                    data = patch_desktop_telegram_tool_origin(
                         name, rel.as_posix(), data
                     )
                     for url in HTTP_RE.findall(data):

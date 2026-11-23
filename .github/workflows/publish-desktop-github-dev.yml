@@ -148,6 +148,12 @@ jobs:
           python tests/test_invoice_resume_sidecar_v0311.py
           if ($LASTEXITCODE -ne 0) { throw "Invoice Generator batch-resume or browser dock regression failed" }
 
+      - name: Guard Telegram Manager local embedded tool routing
+        shell: pwsh
+        run: |
+          python tests/test_telegram_manager_desktop_origin_v0314.py
+          if ($LASTEXITCODE -ne 0) { throw "Telegram Manager Desktop origin routing regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
