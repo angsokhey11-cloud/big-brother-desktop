@@ -102,6 +102,12 @@ jobs:
           python tests/test_no_legacy_pwa_browser_v0310.py
           if ($LASTEXITCODE -ne 0) { throw "Retired PWA Browser or native Browser fallback failed" }
 
+      - name: Guard Invoice Generator batch resume and right-side browser dock
+        shell: pwsh
+        run: |
+          python tests/test_invoice_resume_sidecar_v0311.py
+          if ($LASTEXITCODE -ne 0) { throw "Invoice Generator batch-resume or browser dock regression failed" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
