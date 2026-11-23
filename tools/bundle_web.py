@@ -48,13 +48,20 @@ def patch_desktop_sales_support_navigation(repo: str, relative: str, data: str) 
     if repo != "big-brother-dashboard" or relative not in SALES_SUPPORT_ROUTE_MARKERS:
         return data
     before, after = SALES_SUPPORT_ROUTE_MARKERS[relative]
-    if data.count(before) != 1:
-        raise RuntimeError(
-            f"Desktop Sales Support route patch marker missing or changed: {repo}/{relative}"
-        )
-    # This marker also invalidates the Dashboard's deferred iframe switch from
-    # a previous module, without touching customer/permission/business logic.
-    return data.replace(before, after, 1)
+    if data.count(before) == 1:
+        # Historical pinned dashboard versions still need the Desktop patch.
+        return data.replace(before, after, 1)
+    # Newer Cloud/PWA Dashboard revisions include this exact fix natively,
+    # with the route marker and deferred-switch token updated on separate
+    # lines. Accept the already-correct code instead of failing bundling.
+    target = "target.href" if "add-customer" in relative else "URL"
+    if (data.count("frame.dataset.module=ROUTE;") == 1
+        and data.count("frame.dataset.bbSwitchToken=") >= 1
+        and data.count(f"frame.src={target};") == 1):
+        return data
+    raise RuntimeError(
+        f"Desktop Sales Support route patch missing or changed: {repo}/{relative}"
+    )
 
 
 def bundle() -> None:
