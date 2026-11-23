@@ -72,6 +72,12 @@ jobs:
           python tests/test_browser_shortcuts_v031.py
           if ($LASTEXITCODE -ne 0) { throw "Browser workspace regression failed" }
 
+      - name: Guard compact Browser title toolbar and wheel-scrolling tabs
+        shell: pwsh
+        run: |
+          python tests/test_browser_compact_toolbar_v0312.py
+          if ($LASTEXITCODE -ne 0) { throw "Compact Browser toolbar regression failed" }
+
       - name: Verify dashboard-wide Home, tabs, Close and browser isolation
         shell: pwsh
         run: |
@@ -163,7 +169,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.11 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.12 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }

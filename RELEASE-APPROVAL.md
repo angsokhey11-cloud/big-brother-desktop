@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.11
+APPROVED_VERSION=0.3.12
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -181,3 +181,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Pin Invoice Generator d4bd888868f5e479072f616efda8ac7778d2cc9d and Dashboard 5237c1bf86811fbba704c7aa2c339392eb796ece; keep the other 30 module SHAs fixed. The bundler recognizes Sales Support return-navigation protection already present in the updated Dashboard without duplicating it.
 - Development Windows CI run **45112630579** passed: all 32 module snapshots, navigation/browser/ghost-click regression tests, invoice resume/dock guard, .NET 10 compilation and Velopack installer packaging.
 - Publish only to the consent-controlled internal GitHub development prerelease channel. Do not automatically install or restart, migrate Supabase, edit accounting data, or authorize staff production rollout. Real Windows acceptance testing remains necessary.
+
+## Approved v0.3.12 — Clean one-row native browser toolbar and scrolling tabs
+
+- User-approved compact Windows Browser UI: remove visible “BIG BROTHER Browser • drag to move” title; retain an accessible left-hand native drag grip without a topmost or fullscreen overlay.
+- Put Shortcuts and + New Tab on the blue title toolbar beside the URL visibility control, minimize and Close buttons. The tab-only second row reclaims its former action-button width.
+- Hide the native tab strip's horizontal scrollbar; support regular mouse-wheel horizontal scrolling when tabs overflow. Automatically bring the selected tab into view after switching or opening it. Keep existing shortcut strip's mouse-wheel scrolling, drag reordering and persisted settings.
+- No Cloud/PWA, Local Brain, Supabase, accounting data, invoice-number, batch, sales, inventory, A/R, bank, or other business-logic changes. Keep previous 32 pinned accounting frontend module versions exactly as v0.3.11.
+- Windows development CI **45114332486** passed bundled modules, legacy browser/mouse-capture safeguards, new compact toolbar regression, .NET 10 warnings-as-errors compilation and Velopack installer packaging.
+- Approved for consent-controlled internal Desktop development prerelease only. No automatic installation or restart; production/staff approval requires real Windows acceptance testing.

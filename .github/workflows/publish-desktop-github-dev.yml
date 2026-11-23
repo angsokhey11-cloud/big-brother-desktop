@@ -100,6 +100,12 @@ jobs:
           python tests/test_browser_shortcuts_v031.py
           if ($LASTEXITCODE -ne 0) { throw "Browser workspace regression failed" }
 
+      - name: Guard compact Browser title toolbar and wheel-scrolling tabs
+        shell: pwsh
+        run: |
+          python tests/test_browser_compact_toolbar_v0312.py
+          if ($LASTEXITCODE -ne 0) { throw "Compact Browser toolbar regression failed" }
+
       - name: Verify dashboard-wide Home, tabs, Close and browser isolation
         shell: pwsh
         run: |
