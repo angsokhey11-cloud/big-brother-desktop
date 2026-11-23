@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.10
+APPROVED_VERSION=0.3.11
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -172,3 +172,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No topmost/transparent full-screen overlay and no reintroduction of the native WebView2 ghost-click issue. No Supabase, Cloud Dashboard route, Local Brain, stock, bank, A/R, invoice financial rule or schema changes.
 - Windows development CI run **45018024705** passed: all 32 pinned frontend snapshots, explicit absent-legacy-PWA-browser bundle assertions, native menu and sidebar checks, Sales Support customer navigation, ghost-click/focus regressions, .NET warnings-as-errors compile, and Velopack installer packaging.
 - Approve consent-driven internal development prerelease only. Real PC test must verify Alt+Space browser access when sidebar collapsed and no old globe flash in Invoice Generator.
+
+## Approved v0.3.11 — Batch invoice restore and collapsed-sidebar browser dock
+
+- User requested identical fixes for BIG BROTHER PWA and the installed Windows Desktop App.
+- Invoice Generator restores a previously selected valid Batch using the existing change handler so its authoritative Supabase Batch invoice-number RPC runs on reopen; Direct Sale continues with the normal sequence. No invoice-number, stock, payment or selling-date validation is bypassed.
+- Collapsing the desktop Dashboard sidebar reserves 430px on the right for the native floating Browser when the Invoice Generator is selected and the viewport is at least 1440px wide; unrelated modules and narrow/mobile layouts remain full width.
+- Pin Invoice Generator d4bd888868f5e479072f616efda8ac7778d2cc9d and Dashboard 5237c1bf86811fbba704c7aa2c339392eb796ece; keep the other 30 module SHAs fixed. The bundler recognizes Sales Support return-navigation protection already present in the updated Dashboard without duplicating it.
+- Development Windows CI run **45112630579** passed: all 32 module snapshots, navigation/browser/ghost-click regression tests, invoice resume/dock guard, .NET 10 compilation and Velopack installer packaging.
+- Publish only to the consent-controlled internal GitHub development prerelease channel. Do not automatically install or restart, migrate Supabase, edit accounting data, or authorize staff production rollout. Real Windows acceptance testing remains necessary.
