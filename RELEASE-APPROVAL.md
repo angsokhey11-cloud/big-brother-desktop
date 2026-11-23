@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.13
+APPROVED_VERSION=0.3.14
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -199,3 +199,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Existing 32 pinned accounting frontend modules, stock, invoice, banking, A/R, customer and Local Brain state remain unchanged.
 - Windows CI **45133752644** passed all module snapshots, new System Alert/update branding guard, native browser focus safeguards, warnings-as-errors .NET compilation, and Velopack packaging. Online setup CI **45133752816** passed.
 - Internal user-consent development prerelease only; real Windows acceptance for alert OK/Cancel/typed prompt, browser focus, update and new-PC installation remains required before staff rollout.
+
+## Approved v0.3.14 — Restore Telegram Manager embedded admin functions in Desktop
+
+- User reported white blank Telegram Manager screen and “This page could not be embedded” when opening Customer Bank Directory in installed Windows app.
+- Root cause: the Notification Center app.js constructs approved tool iframe URLs from TOOL_ORIGIN='https://angsokhey11-cloud.github.io' without a trailing slash. The desktop bundler's general first-party rewrite only matches URLs with trailing slashes; the app's actual synthetic origin is https://app.bigbrother.test, with GitHub Pages blocked for locally packaged accounting modules. Cross-origin iframe inspection fails and the manager's existing safety fallback clears the frame.
+- Desktop-only build-time exact-marker patch changes this single TOOL_ORIGIN to https://app.bigbrother.test for bundled big-brother-notification-center/app.js. It retains every explicit TOOL_PATHS allow-listed route, origin validation, stylesheet, existing admin permissions, backend and financial business rules; Cloud/PWA repo stays untouched.
+- New regression guard validates pinned local Customer Bank Directory, Bank Assistant Setup, and Telegram tools, retained same-origin check and a fail-closed build-time marker guard.
+- Keep all 32 accounting module pinned revisions unchanged from v0.3.13. No database, transactions, customer balance, bank register, local brain or profile changes.
+- Windows CI build **45153134142** passed 32-module bundling, new Telegram Manager local-origin regression, native UI guards, .NET 10 compilation and Velopack installer packaging.
+- Approved for consent-controlled internal Desktop development prerelease only. Real Windows verification of Telegram Manager tool loading, return navigation, login, and permission enforcement is still required before staff rollout.
