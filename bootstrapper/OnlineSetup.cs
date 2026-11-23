@@ -171,7 +171,7 @@ namespace BigBrotherOnlineSetup
             {
                 content.Controls.Add(L("Welcome to BIG BROTHER Desktop", 1, 8, 620, 48, 21, true));
                 content.Controls.Add(L("Install the complete Windows accounting application using one small setup file.", 2, 69, 608, 54, 11, false));
-                content.Controls.Add(L("• Downloads the approved application package directly from GitHub Releases.", 8, 137, 618, 31, 10, false));
+                content.Controls.Add(L("• Downloads the approved application package from BIG BROTHER Main Server.", 8, 137, 618, 31, 10, false));
                 content.Controls.Add(L("• You can choose where Windows installs the app and stores local settings.", 8, 177, 618, 31, 10, false));
                 content.Controls.Add(L("• Your actual accounting data remains in the existing online Supabase database.", 8, 217, 618, 45, 10, false));
             }
@@ -190,7 +190,7 @@ namespace BigBrotherOnlineSetup
                 note.Location = new Point(4, 82);
                 note.Size = new Size(620, 69);
                 note.ForeColor = Color.FromArgb(36, 57, 83);
-                note.Text = "Connecting to GitHub Releases...";
+                note.Text = "Connecting to BIG BROTHER Main Server...";
                 content.Controls.Add(note);
                 progress.Location = new Point(4, 174);
                 progress.Size = new Size(613, 28);
@@ -328,7 +328,7 @@ namespace BigBrotherOnlineSetup
                 var serializer = new JavaScriptSerializer();
                 serializer.MaxJsonLength = 20 * 1024 * 1024;
                 var items = serializer.DeserializeObject(reader.ReadToEnd()) as object[];
-                if (items == null) throw new Exception("GitHub did not return a release list.");
+                if (items == null) throw new Exception("BIG BROTHER Main Server did not return a release list.");
                 ApprovedRelease best = null;
                 foreach (var item in items)
                 {
@@ -393,7 +393,7 @@ namespace BigBrotherOnlineSetup
         {
             try
             {
-                note.Text = "Checking the approved release on GitHub...";
+                note.Text = "Checking the approved release on BIG BROTHER Main Server...";
                 selectedRelease = await Task.Run(() => FindLatestApprovedRelease());
                 note.Text = "Found BIG BROTHER Desktop " + selectedRelease.Version + ". Downloading the installer...";
                 temporaryDirectory = Path.Combine(Path.GetTempPath(), "BB-Desktop-Online-" + Guid.NewGuid().ToString("N"));
@@ -410,7 +410,7 @@ namespace BigBrotherOnlineSetup
                         int percent = Math.Max(0, Math.Min(100, evt.ProgressPercentage));
                         progress.Value = Math.Min(80, (int)(percent * 0.8));
                         note.Text = "Downloading approved version " + selectedRelease.Version +
-                            " from GitHub... " + percent + "%\r\n" +
+                            " from BIG BROTHER Main Server... " + percent + "%\r\n" +
                             "This is the only full download required for a fresh installation.";
                     };
                     await wc.DownloadFileTaskAsync(new Uri(selectedRelease.Url), installerPath);
@@ -421,7 +421,7 @@ namespace BigBrotherOnlineSetup
                 progress.Value = 84;
                 var actualHash = await Task.Run(() => Sha256(installerPath));
                 if (!string.Equals(actualHash, selectedRelease.Sha256, StringComparison.OrdinalIgnoreCase))
-                    throw new Exception("The downloaded installer checksum does not match GitHub. No installation was attempted.");
+                    throw new Exception("The downloaded installer failed the security verification. No installation was attempted.");
 
                 note.Text = "Installing to " + installPath.Text + "\r\nPlease keep this window open.";
                 progress.Value = 90;
@@ -463,7 +463,12 @@ namespace BigBrotherOnlineSetup
             {
                 installing = false;
                 busy = false;
-                note.Text = "Installation stopped: " + e.Message +
+                System.Diagnostics.Trace.WriteLine("BIG BROTHER installation failure: " + e);
+                var friendly = e.Message.IndexOf("github", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                               e.Message.IndexOf("https://", StringComparison.OrdinalIgnoreCase) >= 0
+                    ? "Unable to reach BIG BROTHER Main Server. Check your connection and try again."
+                    : e.Message;
+                note.Text = "Installation stopped: " + friendly +
                             "\r\nNo application folder was manually deleted.";
                 progress.Value = 0;
                 // Return to the folder page for a safe retry. Never mutate
@@ -471,7 +476,7 @@ namespace BigBrotherOnlineSetup
                 step = 1;
                 Render();
                 cancel.Enabled = true;
-                MessageBox.Show(this, e.Message, "BIG BROTHER Desktop Setup",
+                MessageBox.Show(this, friendly, "BIG BROTHER Desktop Setup",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
