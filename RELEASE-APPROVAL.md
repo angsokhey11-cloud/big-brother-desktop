@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.12
+APPROVED_VERSION=0.3.13
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -190,3 +190,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No Cloud/PWA, Local Brain, Supabase, accounting data, invoice-number, batch, sales, inventory, A/R, bank, or other business-logic changes. Keep previous 32 pinned accounting frontend module versions exactly as v0.3.11.
 - Windows development CI **45114332486** passed bundled modules, legacy browser/mouse-capture safeguards, new compact toolbar regression, .NET 10 warnings-as-errors compilation and Velopack installer packaging.
 - Approved for consent-controlled internal Desktop development prerelease only. No automatic installation or restart; production/staff approval requires real Windows acceptance testing.
+
+## Approved v0.3.13 — System Alert title and branded Main Server download progress
+
+- Replace the default Chromium JavaScript dialog heading (“app.bigbrother.test says”) only for the locally installed accounting WebView with an owner-bounded native **System Alert!** dialog. Preserve alert, confirm, prompt, and beforeunload decisions using WebView2 ScriptDialogOpening and a deferral. Use Website Alert for untrusted origins, without exposing privileged browser/host objects.
+- Brand the existing BIG BROTHER Desktop in-app updater and the lightweight fresh-PC online setup wizard with **BIG BROTHER Main Server** wording rather than showing raw GitHub progress labels to accounting users.
+- No backend hosting migration: the update feed still fetches approved public GitHub Releases and the online installer still verifies the GitHub SHA-256 release asset digest. Do not weaken checksum checks, authentication, release approval or consent requirements. Do not expose secrets or modify accounting business rules.
+- Existing 32 pinned accounting frontend modules, stock, invoice, banking, A/R, customer and Local Brain state remain unchanged.
+- Windows CI **45133752644** passed all module snapshots, new System Alert/update branding guard, native browser focus safeguards, warnings-as-errors .NET compilation, and Velopack packaging. Online setup CI **45133752816** passed.
+- Internal user-consent development prerelease only; real Windows acceptance for alert OK/Cancel/typed prompt, browser focus, update and new-PC installation remains required before staff rollout.

@@ -1191,6 +1191,8 @@ internal sealed class MainWindow : Window
             };
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.AreHostObjectsAllowed = false;
+            web.Settings.AreDefaultScriptDialogsEnabled = false;
+            web.ScriptDialogOpening += OnAccountingScriptDialog;
             // Enable only the one-way visibility signal from our installed
             // top-level Dashboard document. No privileged host objects or
             // accounting commands are exposed to the page.
@@ -1235,6 +1237,124 @@ internal sealed class MainWindow : Window
                 "\n\nInstall or repair Microsoft Edge WebView2 Runtime and try again.",
                 "BIG BROTHER Desktop", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+
+    // Show "System Alert!" rather than Chromium's app.bigbrother.test
+    // hostname label. Scope this to the installed accounting WebView only.
+    // A deferral keeps JavaScript blocked until the user's decision is made.
+    private void OnAccountingScriptDialog(object? sender,
+        CoreWebView2ScriptDialogOpeningEventArgs args)
+    {
+        var deferred = args.GetDeferral();
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (!IsLoaded || !IsVisible) return;
+                var local = Uri.TryCreate(args.Uri, UriKind.Absolute, out var origin) &&
+                    origin.Host.Equals("app.bigbrother.test",
+                        StringComparison.OrdinalIgnoreCase);
+                var title = local ? "System Alert!" : "Website Alert";
+                var message = (local ? "" :
+                    "This notice is from a website outside BIG BROTHER accounting.\\n\\n") +
+                    (args.Message ?? "");
+
+                switch (args.Kind)
+                {
+                    case CoreWebView2ScriptDialogKind.Alert:
+                        MessageBox.Show(this, message, title,
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        args.Accept();
+                        break;
+                    case CoreWebView2ScriptDialogKind.Confirm:
+                        if (MessageBox.Show(this, message, title,
+                                MessageBoxButton.YesNo, MessageBoxImage.Question) ==
+                            MessageBoxResult.Yes)
+                            args.Accept();
+                        break;
+                    case CoreWebView2ScriptDialogKind.Prompt:
+                        if (TrySystemPrompt(title, message, args.DefaultText, out var answer))
+                        {
+                            args.ResultText = answer;
+                            args.Accept();
+                        }
+                        break;
+                    case CoreWebView2ScriptDialogKind.Beforeunload:
+                        if (MessageBox.Show(this,
+                                string.IsNullOrWhiteSpace(message)
+                                    ? "Leave this screen? Unsaved work may be lost." : message,
+                                title, MessageBoxButton.YesNo, MessageBoxImage.Warning) ==
+                            MessageBoxResult.Yes)
+                            args.Accept();
+                        break;
+                }
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    "BIG BROTHER accounting dialog error: " + error);
+                // Confirmation, prompt and navigation stay canceled on failure.
+            }
+            finally
+            {
+                deferred.Complete();
+            }
+        }), DispatcherPriority.Normal);
+    }
+
+    private bool TrySystemPrompt(string title, string message,
+        string? initialValue, out string result)
+    {
+        result = "";
+        var dialog = new Window
+        {
+            Title = title, Owner = this, Width = 460, Height = 230,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false
+        };
+        var panel = new Grid { Margin = new Thickness(18) };
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.Children.Add(new TextBlock
+        {
+            Text = message, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 10)
+        });
+        var input = new TextBox
+        {
+            Text = initialValue ?? "", Height = 32,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        Grid.SetRow(input, 1);
+        panel.Children.Add(input);
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        var cancel = new Button
+        {
+            Content = "Cancel", Width = 90, Height = 30,
+            Margin = new Thickness(0, 0, 8, 0), IsCancel = true
+        };
+        cancel.Click += (_, _) => dialog.DialogResult = false;
+        row.Children.Add(cancel);
+        var ok = new Button
+        {
+            Content = "OK", Width = 90, Height = 30, IsDefault = true
+        };
+        ok.Click += (_, _) => dialog.DialogResult = true;
+        row.Children.Add(ok);
+        Grid.SetRow(row, 2);
+        panel.Children.Add(row);
+        dialog.Content = panel;
+        dialog.Loaded += (_, _) => { input.Focus(); input.SelectAll(); };
+        if (dialog.ShowDialog() != true) return false;
+        result = input.Text;
+        return true;
     }
 
     private void NavigateWorkspace()

@@ -106,6 +106,12 @@ jobs:
           python tests/test_browser_compact_toolbar_v0312.py
           if ($LASTEXITCODE -ne 0) { throw "Compact Browser toolbar regression failed" }
 
+      - name: Guard native System Alert and branded Main Server progress
+        shell: pwsh
+        run: |
+          python tests/test_system_alert_update_branding_v0313.py
+          if ($LASTEXITCODE -ne 0) { throw "System Alert / Main Server branding regression failed" }
+
       - name: Verify dashboard-wide Home, tabs, Close and browser isolation
         shell: pwsh
         run: |

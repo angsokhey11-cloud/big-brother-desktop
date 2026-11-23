@@ -130,7 +130,7 @@ internal static class UpdateService
             };
             var progressLabel = new TextBlock
             {
-                Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from GitHub… 0%",
+                Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from BIG BROTHER Main Server… 0%",
                 Margin = new Thickness(18, 17, 18, 2),
                 Foreground = Brushes.DarkSlateGray,
                 TextWrapping = TextWrapping.Wrap
@@ -159,13 +159,13 @@ internal static class UpdateService
             try
             {
                 dialog.Show();
-                status("Downloading BIG BROTHER update from GitHub…");
+                status("Downloading BIG BROTHER update from Main Server…");
                 await manager.DownloadUpdatesAsync(update, p =>
                 {
                     _ = dialog.Dispatcher.BeginInvoke(() =>
                     {
                         progress.Value = Math.Clamp(p, 0, 100);
-                        progressLabel.Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from GitHub… " +
+                        progressLabel.Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from BIG BROTHER Main Server… " +
                                              Math.Clamp(p, 0, 100) + "%";
                     });
                 });
@@ -196,9 +196,13 @@ internal static class UpdateService
         {
             status("Update check unavailable; existing Desktop continues working");
             if (!quietIfCurrent)
-                MessageBox.Show(owner, "Update unavailable: " + error.Message +
+                MessageBox.Show(owner, "Update unavailable: " +
+                    (error.Message.Contains("github", StringComparison.OrdinalIgnoreCase) ||
+                     error.Message.Contains("https://", StringComparison.OrdinalIgnoreCase)
+                        ? "Could not reach BIG BROTHER Main Server. Check your internet connection."
+                        : error.Message) +
                     "\n\nYour installed BIG BROTHER Desktop is unchanged. " +
-                    "GitHub access is only needed for updates, not to open local app files.",
+                    "The main update service is only needed for updates, not to open local app files.",
                     "BIG BROTHER Desktop", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         finally
