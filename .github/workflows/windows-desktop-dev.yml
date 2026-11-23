@@ -132,6 +132,12 @@ jobs:
           python tests/test_bank_khqr_stand_bundled_v0315.py
           if ($LASTEXITCODE -ne 0) { throw "Bank Review STAND-identifier safeguard regression failed" }
 
+      - name: Guard audited A/R bank payment reversal UI
+        shell: pwsh
+        run: |
+          python tests/test_ar_bank_payment_reversal_v0316.py
+          if ($LASTEXITCODE -ne 0) { throw "A/R payment reversal bundle regression" }
+
       - name: Publish source and external dependency inventory
         uses: actions/upload-artifact@v4
         with:
@@ -187,7 +193,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.15 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.16 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }

@@ -160,6 +160,12 @@ jobs:
           python tests/test_bank_khqr_stand_bundled_v0315.py
           if ($LASTEXITCODE -ne 0) { throw "Bank Review STAND-identifier safeguard regression failed" }
 
+      - name: Guard audited A/R bank payment reversal UI
+        shell: pwsh
+        run: |
+          python tests/test_ar_bank_payment_reversal_v0316.py
+          if ($LASTEXITCODE -ne 0) { throw "A/R payment reversal bundle regression" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |

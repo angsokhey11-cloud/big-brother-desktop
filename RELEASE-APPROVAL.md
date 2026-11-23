@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.15
+APPROVED_VERSION=0.3.16
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -219,3 +219,13 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Historic payment PAY-3402 uses the supplied shared STAND 0001037221 as its transaction ID; this update does NOT change historical payments, and the true reference must be independently verified before any correction.
 - Windows development CI **45164619712** passed the newly bundled KHQR reference guard, 32-module checks, native browser/ghost-click safeguards, .NET compilation, Velopack Windows installer packaging.
 - This remains an internal consent-controlled development prerelease. Real Windows bank-review UI acceptance and finance-team validation are required before staff rollout.
+
+## Approved v0.3.16 — Audited admin A/R bank payment reversal
+
+- New admin-only “Reverse A/R Bank Payment” screen under **All Receivable**. Search by payment ID, transaction ID, customer or invoice. Review affected invoices, original amount/payment date, new outstanding. Requires 12-500 character reason, exact payment ID typed, checkbox acknowledgment, browser confirmation.
+- NEW deployed server RPC `public.bb_ar_payment_reversal_v1`: only active admin with A/R Edit may search/preview/reverse. Atomic payment+allocation reversal, invoice A/R restoration, original payment/allocations retained in Sales History audit snapshots and additional bank audit log, concurrency token verification, and bank-reference release. No sale or stock reversal.
+- Version 1 handles **eligible direct bank A/R payments** only. Refuses cash payments, registered bank wallets/outlet shares, existing registrations/duplicates, linked deposits/refunds/requests, closed collection, returned invoices, multiple distinct references and inconsistent/duplicate allocations. No silent changes to other payments.
+- Tested read-only preview with authorized admin context. Executed a complete rehearsal reversal inside one SQL transaction followed by `ROLLBACK`, then independently verified the real payment and invoice and audit history were completely unchanged.
+- Only `big-brother-ar` frontend pin changes to `00df73a52c26c64e3381a88b38db83470d999700`. Other 31 accounting module revisions unchanged; no accounting records changed during installation. The server RPC is deployed separately to BIG BROTHER DEV Supabase, not packaged in the web bundle.
+- Windows dev CI **45180380213** passed 32 pinned frontends, Telegram Manager routing, existing browser stability checks, new audited A/R reversal bundle test, warnings-as-errors .NET compilation, Velopack packaging.
+- Internal development prerelease only; real Desktop admin review and reversal acceptance required before company rollout.
