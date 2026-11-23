@@ -19,7 +19,7 @@ checks={
  "Audit reason and explicit confirmation": "p_reason:reason" in ui and "window.confirm(confirmation)" in ui,
  "Close modal using Escape": "e.key==='Escape'" in ui,
  "Refresh A/R after approved action": "window.loadAR(true)" in ui,
- "Server RPC source captured in pinned bundle": sql.is_file() and "bb_ar_payment_reversal_v1" in sql.read_text(encoding="utf-8"),
+ "Server RPC invoked without shipping private SQL in web bundle": not sql.exists() and "bb_ar_payment_reversal_v1" in ui,
  "Preserve existing desktop Telegram routing": (root/"build/web/big-brother-notification-center/app.js").is_file()
 }
 for label,ok in checks.items():
