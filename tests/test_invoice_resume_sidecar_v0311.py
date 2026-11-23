@@ -53,7 +53,7 @@ check(
     "Installed Dashboard reloads the revised sidebar stylesheet",
 )
 check(
-    "big-brother-invoice-generator/?embed=1&v=20261123-batch-restore-sidecar1" in dash,
+    "big-brother-invoice-generator/index.html?embed=1&v=20261123-batch-restore-sidecar1" in dash,
     "Installed Dashboard loads the corrected Invoice Generator version",
 )
 print("All installed Invoice resume and right-browser-dock regression checks passed.")
