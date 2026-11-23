@@ -154,6 +154,12 @@ jobs:
           python tests/test_telegram_manager_desktop_origin_v0314.py
           if ($LASTEXITCODE -ne 0) { throw "Telegram Manager Desktop origin routing regression failed" }
 
+      - name: Guard Bank Review KHQR Hash vs merchant STAND
+        shell: pwsh
+        run: |
+          python tests/test_bank_khqr_stand_bundled_v0315.py
+          if ($LASTEXITCODE -ne 0) { throw "Bank Review STAND-identifier safeguard regression failed" }
+
       - name: Generate BIG BROTHER Windows icon
         shell: pwsh
         run: |
