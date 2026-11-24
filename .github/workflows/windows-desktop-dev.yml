@@ -48,6 +48,10 @@ jobs:
           python tools/create_icon.py
           if ($LASTEXITCODE -ne 0) { throw "BIG BROTHER icon generation failed" }
 
+      - name: Verify stock allocation prefill dates and rendering
+        shell: pwsh
+        run: node tests/stock-allocation-prefill-regression.js
+
       - name: Verify native maximized startup
         shell: pwsh
         run: python tests/test_maximized_startup.py
@@ -197,7 +201,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.18 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.19 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }

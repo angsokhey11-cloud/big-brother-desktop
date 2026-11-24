@@ -29,7 +29,7 @@ checks={
         "launcherContent.Children.Add(globe);" in browser
         and "launcherContent.Children.Add(browserLabel);" in browser
         and "bubble.Click += (_, _) => Open();" in browser,
-    "Correct in-place update version": "<Version>0.3.18</Version>" in project,
+    "Correct in-place update version": "<Version>0.3.19</Version>" in project,
 }
 for title, ok in checks.items():
     assert ok, "FAILED " + title

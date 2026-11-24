@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.18
+APPROVED_VERSION=0.3.19
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -243,3 +243,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User approved native WPF maximized startup on the internal Desktop development channel. Windows determines the monitor work area; standard window chrome, taskbar and manual restore remain available. Existing normal dimensions are retained for restore.
 - Windows main CI **45353633858** passed on exact commit `eebb58c6db9e17945957be84bf45f00622df6cb3`. Added startup regression guard and aligned version guards. Verified previous release tree differs from its tested main tree only in RELEASE-APPROVAL.md; no accounting frontend changes.
 - Internal development prerelease only. Actual monitor and DPI acceptance testing remains pending. No accounting data changes or automatic installation/restart.
+
+
+## Approved v0.3.19 — Stock allocation prefill date and form responsiveness
+
+- Shared Stock Management source commit 3762557b41f7b6067d05967845551c6c94dca986 resets transaction date to explicitly planned date or current Cambodia date and initializes selling date range to that date. Skips redundant movement/source initialization, retains editable fields, purchased/zero-cost separation, normal stock save and one-time consume; blocks Save during pending consume. No stock or financial records changed.
+- Shared PWA GitHub Pages deployment 45369542606 succeeded. Desktop pins only the corrected Stock Management module; Windows development CI 45369615647 passed on exact tested main commit 046222fa91737811348b612b48759e6f06f072bc, including new date and prefill regression checks and packaging. Real-device responsiveness remains to be tested.
+- Internal development prerelease only. No automatic installation or restart, production/staff rollout, database migration or accounting data changes.
