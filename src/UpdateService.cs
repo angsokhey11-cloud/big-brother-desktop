@@ -51,6 +51,7 @@ internal static class UpdateService
     {
         if (_busy) return;
         _busy = true;
+        UpdateTruckDialog? checking = null;
         try
         {
             // Public GitHub Releases, dev/pre-release channel. There is no
@@ -96,16 +97,17 @@ internal static class UpdateService
             }
 
             status("Checking for BIG BROTHER Desktop updates…");
+            checking = new UpdateTruckDialog(owner, "Checking for updates…", "Finding the latest application version");
+            checking.Show();
             var update = await manager.CheckForUpdatesAsync();
             if (update == null)
             {
                 status("BIG BROTHER Desktop is up to date");
-                if (!quietIfCurrent)
-                    MessageBox.Show(owner, "This Desktop installation is up to date.",
-                        "BIG BROTHER Desktop", MessageBoxButton.OK, MessageBoxImage.Information);
+                await checking.FinishAsync("You're up to date!", "Your business is on the move");
                 return;
             }
 
+            checking.CloseIfOpen();
             var newVersion = update.TargetFullRelease.Version.ToString();
             var currentVersion = manager.CurrentVersion?.ToString() ?? "unknown";
             status("BIG BROTHER Desktop v" + newVersion + " available");
@@ -123,39 +125,8 @@ internal static class UpdateService
                 return;
             }
 
-            var progress = new ProgressBar
-            {
-                Minimum = 0, Maximum = 100, Value = 0, Height = 23,
-                Margin = new Thickness(18, 9, 18, 12)
-            };
-            var progressLabel = new TextBlock
-            {
-                Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from BIG BROTHER Main Server… 0%",
-                Margin = new Thickness(18, 17, 18, 2),
-                Foreground = Brushes.DarkSlateGray,
-                TextWrapping = TextWrapping.Wrap
-            };
-            var panel = new StackPanel();
-            panel.Children.Add(progressLabel);
-            panel.Children.Add(progress);
-            var dialog = new Window
-            {
-                Owner = owner,
-                Title = "BIG BROTHER Desktop — Downloading Update",
-                Content = panel,
-                Width = 440, Height = 140,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                ResizeMode = ResizeMode.NoResize,
-                ShowInTaskbar = false
-            };
-            // Do not allow an accidental close to imply a canceled download.
-            // Download continues to completion or failure before installation
-            // is even offered. The main WPF window remains responsive.
-            dialog.Closing += (_, e) =>
-            {
-                if (dialog.Tag is not true) e.Cancel = true;
-            };
-
+            var dialog = new UpdateTruckDialog(owner, "Downloading your update…",
+                "BIG BROTHER Desktop v" + newVersion + " · 0%", downloading: true);
             try
             {
                 dialog.Show();
@@ -163,17 +134,12 @@ internal static class UpdateService
                 await manager.DownloadUpdatesAsync(update, p =>
                 {
                     _ = dialog.Dispatcher.BeginInvoke(() =>
-                    {
-                        progress.Value = Math.Clamp(p, 0, 100);
-                        progressLabel.Text = "Downloading BIG BROTHER Desktop v" + newVersion + " from BIG BROTHER Main Server… " +
-                                             Math.Clamp(p, 0, 100) + "%";
-                    });
+                        dialog.SetDownloadProgress(Math.Clamp(p, 0, 100), newVersion));
                 });
             }
             finally
             {
-                dialog.Tag = true;
-                dialog.Close();
+                dialog.CloseIfOpen();
             }
 
             status("BIG BROTHER Desktop v" + newVersion + " downloaded; restart requires approval");
@@ -195,7 +161,9 @@ internal static class UpdateService
         catch (Exception error)
         {
             status("Update check unavailable; existing Desktop continues working");
-            if (!quietIfCurrent)
+            if (checking is { IsOpen: true })
+                await checking.FinishAsync("Continuing with your installed version…", "Update service unavailable. Try again later.");
+            else if (!quietIfCurrent)
                 MessageBox.Show(owner, "Update unavailable: " +
                     (error.Message.Contains("github", StringComparison.OrdinalIgnoreCase) ||
                      error.Message.Contains("https://", StringComparison.OrdinalIgnoreCase)
@@ -207,6 +175,7 @@ internal static class UpdateService
         }
         finally
         {
+            checking?.CloseIfOpen();
             _busy = false;
         }
     }
