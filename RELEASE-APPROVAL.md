@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.19
+APPROVED_VERSION=0.3.20
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -250,3 +250,9 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Shared Stock Management source commit 3762557b41f7b6067d05967845551c6c94dca986 resets transaction date to explicitly planned date or current Cambodia date and initializes selling date range to that date. Skips redundant movement/source initialization, retains editable fields, purchased/zero-cost separation, normal stock save and one-time consume; blocks Save during pending consume. No stock or financial records changed.
 - Shared PWA GitHub Pages deployment 45369542606 succeeded. Desktop pins only the corrected Stock Management module; Windows development CI 45369615647 passed on exact tested main commit 046222fa91737811348b612b48759e6f06f072bc, including new date and prefill regression checks and packaging. Real-device responsiveness remains to be tested.
 - Internal development prerelease only. No automatic installation or restart, production/staff rollout, database migration or accounting data changes.
+
+
+## Approved v0.3.20 — Exact planned batch transaction date
+
+- Stock Allocation source 75d05c92415b44fdd239286964c4465343241529 stores the explicitly planned issue date in the saved allocation; Stock Management source 01f80d059213639f37ea3c8941a5e14846136b84 loads that date, resets selling date range, and labels legacy creation date as a suggestion for verification. Both PWA deployments succeeded. User confirmed the matching Android implementation works on device on 24-Nov-2026 and requested Windows delivery.
+- Windows development CI 45372318625 passed on exact tested main commit cfacfe9133872787464e5975b0102d3525f0902d. Preserve only historical approval file from release branch. Internal development prerelease only; no data migration, no accounting record changes, no forced installation or restart. Windows on-device behavior still requires user confirmation.
