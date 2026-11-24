@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.16
+APPROVED_VERSION=0.3.17
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -229,3 +229,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - Only `big-brother-ar` frontend pin changes to `00df73a52c26c64e3381a88b38db83470d999700`. Other 31 accounting module revisions unchanged; no accounting records changed during installation. The server RPC is deployed separately to BIG BROTHER DEV Supabase, not packaged in the web bundle.
 - Windows dev CI **45180380213** passed 32 pinned frontends, Telegram Manager routing, existing browser stability checks, new audited A/R reversal bundle test, warnings-as-errors .NET compilation, Velopack packaging.
 - Internal development prerelease only; real Desktop admin review and reversal acceptance required before company rollout.
+
+
+## Approved v0.3.17 — Native Desktop update truck
+
+- User approved matching the Mobile truck animation for the internal Windows development channel. Native WPF owner-bounded non-topmost animation during checks and downloads, real download percentage, immediate Close and five-second completed-check dismissal. Preserve Velopack package identity, local update support, explicit download and restart decisions, and existing accounting frontend pins.
+- Windows development CI **45352193236** passed on exact main commit `af633eb35239a595528611756aadcb935ca931cf` including regression guards, compilation and development installer packaging. Release branch retains existing approval history; only this approval file differs from tested main source. Actual Windows update and UI acceptance remain pending.
+- Internal development prerelease only; no staff production approval, accounting data changes, or automatic installation/restart.
