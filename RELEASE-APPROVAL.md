@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.20
+APPROVED_VERSION=0.3.21
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -256,3 +256,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 
 - Stock Allocation source 75d05c92415b44fdd239286964c4465343241529 stores the explicitly planned issue date in the saved allocation; Stock Management source 01f80d059213639f37ea3c8941a5e14846136b84 loads that date, resets selling date range, and labels legacy creation date as a suggestion for verification. Both PWA deployments succeeded. User confirmed the matching Android implementation works on device on 24-Nov-2026 and requested Windows delivery.
 - Windows development CI 45372318625 passed on exact tested main commit cfacfe9133872787464e5975b0102d3525f0902d. Preserve only historical approval file from release branch. Internal development prerelease only; no data migration, no accounting record changes, no forced installation or restart. Windows on-device behavior still requires user confirmation.
+
+
+## Approved v0.3.21 — Bank Review navigation and Desktop access
+
+- User requested a Bank Review fix and Desktop delivery. Dashboard pin df86824fcc1c17d2be995b58a0a862abc618358b adds the dedicated permission-gated route and removes Bank History fallback navigation. Supabase Edge Function version 13 separately allows the exact installed Desktop origin while preserving the existing admin authorization and Telegram validation. Pending review data was not modified. User confirmed PWA Bank Review loads the existing batch.
+- Windows development build #122 succeeded on exact main commit c596d5613b16b1c08803a4acf0a42aa2c0906db4 (user-provided GitHub Actions screenshot). Existing regression guards include the dedicated local route and admin access. Installed Windows end-to-end acceptance remains pending.
+- Internal consent-controlled development prerelease only; no forced installation, staff production rollout, database migrations or accounting transaction changes.
