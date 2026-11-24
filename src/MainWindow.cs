@@ -219,6 +219,9 @@ internal sealed class MainWindow : Window
         MinWidth = 840;
         MinHeight = 580;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        // Let Windows maximize to the selected monitor's work area, not a fixed pixel size.
+        // Width and Height above are only the normal/restored window dimensions.
+        WindowState = WindowState.Maximized;
         Background = Paint("#edf2f9");
         FontFamily = new FontFamily("Segoe UI");
         // Explicit WPF taskbar/title-bar icon; EXE/installer have the same brand.

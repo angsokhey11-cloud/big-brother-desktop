@@ -76,6 +76,10 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
 
+      - name: Verify native maximized startup
+        shell: pwsh
+        run: python tests/test_maximized_startup.py
+
       - name: Guard standard WebView2 HWND shell against invisible click-blocking layer
         shell: pwsh
         run: |
