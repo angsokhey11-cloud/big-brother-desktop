@@ -44,3 +44,16 @@ except RuntimeError:
 else:
     raise AssertionError("Origin build guard missing")
 print("PASS Desktop Telegram Manager embedded routing regression")
+
+# Bank Review uses its own permission-gated native route, not Bank History.
+dashboard=directory/"big-brother-dashboard"
+index=(dashboard/"index.html").read_text(encoding="utf-8")
+sections=(dashboard/"desktop-admin-work-sections-v1.js").read_text(encoding="utf-8")
+adapter=(dashboard/"supabase-dashboard-adapter-core-v1.3.js").read_text(encoding="utf-8")
+assert "navAdminBankReview" in index and "loadWorkspace(\\'admin-bank-review\\')" in index
+assert '"admin-bank-review": "https://app.bigbrother.test/big-brother-notification-center/bank-transaction-bulk-review.html?dashboard=1' in index
+assert "moduleName === 'admin-bank-review'" in index
+assert "'admin-bank-review':{module:'admin_work',action:'view',adminOnly:true}" in adapter
+assert 'window.loadWorkspace("admin-bank-history",false)' not in sections
+assert (directory/"big-brother-notification-center/bank-transaction-bulk-review.html").is_file()
+print("PASS Bank Review native route, local origin, and admin guard")
