@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.17
+APPROVED_VERSION=0.3.18
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -236,3 +236,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User approved matching the Mobile truck animation for the internal Windows development channel. Native WPF owner-bounded non-topmost animation during checks and downloads, real download percentage, immediate Close and five-second completed-check dismissal. Preserve Velopack package identity, local update support, explicit download and restart decisions, and existing accounting frontend pins.
 - Windows development CI **45352193236** passed on exact main commit `af633eb35239a595528611756aadcb935ca931cf` including regression guards, compilation and development installer packaging. Release branch retains existing approval history; only this approval file differs from tested main source. Actual Windows update and UI acceptance remain pending.
 - Internal development prerelease only; no staff production approval, accounting data changes, or automatic installation/restart.
+
+
+## Approved v0.3.18 — Native maximized startup
+
+- User approved native WPF maximized startup on the internal Desktop development channel. Windows determines the monitor work area; standard window chrome, taskbar and manual restore remain available. Existing normal dimensions are retained for restore.
+- Windows main CI **45353633858** passed on exact commit `eebb58c6db9e17945957be84bf45f00622df6cb3`. Added startup regression guard and aligned version guards. Verified previous release tree differs from its tested main tree only in RELEASE-APPROVAL.md; no accounting frontend changes.
+- Internal development prerelease only. Actual monitor and DPI acceptance testing remains pending. No accounting data changes or automatic installation/restart.
