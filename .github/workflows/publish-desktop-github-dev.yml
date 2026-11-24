@@ -76,6 +76,10 @@ jobs:
           python tools/bundle_web.py
           if ($LASTEXITCODE -ne 0) { throw 'Frontend bundling failed' }
 
+      - name: Verify stock allocation prefill dates and rendering
+        shell: pwsh
+        run: node tests/stock-allocation-prefill-regression.js
+
       - name: Verify native maximized startup
         shell: pwsh
         run: python tests/test_maximized_startup.py
