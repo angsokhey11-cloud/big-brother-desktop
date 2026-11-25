@@ -22,14 +22,14 @@ checks={
     "Native globe no longer covers brand text column":
         "Width = 66, Height = 77" in browser
         and "Content = launcherContent, Width = 64, Height = 73" in browser,
-    "Floating Browser uses transparent, non-topmost HWND":
+    "Browser launcher uses transparent, non-topmost HWND":
         "Background = Brushes.Transparent, AllowsTransparency = true" in browser
         and "ShowActivated = false, Topmost = false" in browser,
     "Globe and Browser label remain fully clickable":
         "launcherContent.Children.Add(globe);" in browser
         and "launcherContent.Children.Add(browserLabel);" in browser
         and "bubble.Click += (_, _) => Open();" in browser,
-    "Correct in-place update version": "<Version>0.3.27</Version>" in project,
+    "Correct in-place update version": "<Version>0.3.29</Version>" in project,
 }
 for title, ok in checks.items():
     assert ok, "FAILED " + title

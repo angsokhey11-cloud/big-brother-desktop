@@ -17,7 +17,7 @@ using Microsoft.Web.WebView2.Wpf;
 namespace BBDesktop;
 
 /// <summary>
-/// A dashboard-wide, non-topmost, bounded WebView2 browser with a tiny bubble.
+/// A dashboard-wide bounded WebView2 browser with a tiny non-topmost launcher.
 /// This is deliberately NOT a WebView2 composition overlay: it cannot block
 /// clicks in other desktop applications. Every tab shares the existing browser
 /// profile but has an independent WebView2 document and history.
@@ -53,6 +53,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
     private Grid? _addressRow;
     private Thumb? _resizeGrip;
     private bool _panelOpen;
+    private Point? _lastOwnerOrigin;
     private bool _sidebarCollapsed;
     private bool _closed;
 
@@ -170,13 +171,15 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         };
         _browserWindow = new Window
         {
-            Owner = _owner, Title = "BIG BROTHER Browser",
+            // Independent, opaque, bounded tool window: remains visible while
+            // the accounting window is inactive or minimized. No owner HWND.
+            Title = "BIG BROTHER Browser",
             Content = _layout,
             Width = _settings.PanelWidth > 0 ? _settings.PanelWidth : 740,
             Height = _settings.PanelHeight > 0 ? _settings.PanelHeight : 540,
             Background = Brushes.White, WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
-            ShowActivated = false, Topmost = false
+            ShowActivated = false, Topmost = true
         };
         _browserWindow.Deactivated += (_, _) =>
             _owner.Dispatcher.BeginInvoke(new Action(HideIfOtherAppActive),
@@ -284,6 +287,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         Grid.SetRow(tabsRow, 1);
         _layout.Children.Add(tabsRow);
 
+        BuildPdfButton(tabsRow);
         var tabScroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
@@ -720,6 +724,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         if (_closed || _owner.WindowState == WindowState.Minimized ||
             !_owner.IsLoaded || _bubbleWindow is null || _browserWindow is null) return;
         var origin = OwnerOrigin(_owner);
+        _lastOwnerOrigin = origin;
         // Restore the Browser globe to the brand's upper-right corner.
         // The slim native hit area is entirely to the right of the actual
         // logo text and does not obstruct its Dashboard navigation.
@@ -742,7 +747,8 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
     private void RememberBounds()
     {
         if (_browserWindow is null || !_owner.IsLoaded) return;
-        var origin = OwnerOrigin(_owner);
+        var origin = _owner.WindowState == WindowState.Minimized
+            ? _lastOwnerOrigin ?? new Point(0, 0) : OwnerOrigin(_owner);
         _settings.PanelX = _browserWindow.Left - origin.X;
         _settings.PanelY = _browserWindow.Top - origin.Y;
         _settings.PanelWidth = _browserWindow.Width;
@@ -767,37 +773,44 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
     public void Refresh()
     {
         if (_closed || _bubbleWindow is null || _browserWindow is null) return;
-        if (_owner.WindowState == WindowState.Minimized ||
-            (!_owner.IsActive && !_browserWindow.IsActive &&
-             !_bubbleWindow.IsActive && _dialog?.IsActive != true))
-        {
-            Hide();
-            return;
-        }
-        Position();
+        // The open Browser is its own opaque, bounded native window. Never
+        // hide or activate it just because another program becomes active.
         if (_panelOpen)
         {
             if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
-            if (!_browserWindow.IsVisible) _browserWindow.Show();
-        }
-        else
-        {
-            if (_browserWindow.IsVisible) _browserWindow.Hide();
-            // Collapsed sidebar means zero launcher HWND, not a small
-            // floating globe left on top of the accounting workspace.
-            if (_sidebarCollapsed)
+            if (!_browserWindow.IsVisible)
             {
-                if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+                Position();
+                _browserWindow.Show(); // ShowActivated=false
             }
-            else if (!_bubbleWindow.IsVisible) _bubbleWindow.Show();
+            return;
         }
+
+        if (_browserWindow.IsVisible) _browserWindow.Hide();
+        var accountingActive = _owner.IsActive || _bubbleWindow.IsActive ||
+            _dialog?.IsActive == true;
+        if (_owner.WindowState == WindowState.Minimized || !accountingActive)
+        {
+            if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+            ReleaseGrip();
+            return;
+        }
+        Position();
+        // Collapsed sidebar means zero launcher HWND.
+        if (_sidebarCollapsed)
+        {
+            if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+        }
+        else if (!_bubbleWindow.IsVisible) _bubbleWindow.Show();
     }
 
     public void HideIfOtherAppActive()
     {
-        if (_closed || _owner.IsActive || _browserWindow?.IsActive == true ||
-            _bubbleWindow?.IsActive == true || _dialog?.IsActive == true) return;
-        Hide();
+        if (_closed) return;
+        // Only the accounting launcher disappears on app switching. Release
+        // native pointer capture when the Browser is no longer active.
+        if (_browserWindow?.IsActive != true) ReleaseGrip();
+        Refresh();
     }
 
     public void Hide()
@@ -897,6 +910,8 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         RememberBounds();
         ReleaseGrip();
         _panelOpen = false;
+        if (_browserWindow?.IsActive == true && _owner.WindowState != WindowState.Minimized)
+            _owner.Activate();
         Refresh();
         // Tabs and authentication stay alive in the same WebView2 profile.
     }
@@ -908,6 +923,8 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         ReleaseGrip();
         DisposeTabs();
         _panelOpen = false;
+        if (_browserWindow?.IsActive == true && _owner.WindowState != WindowState.Minimized)
+            _owner.Activate();
         Refresh();
         // Unlike Minimize, every WebView2 tab is disposed. Reopen -> Home.
     }
@@ -1025,8 +1042,14 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
             web.Settings.AreHostObjectsAllowed = false;
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.IsStatusBarEnabled = false;
+            web.DownloadStarting += (_, e) => TrackTelegramPdfDownload(web, e);
             web.NewWindowRequested += (_, e) =>
             {
+                if (IsTelegramPreviewPopup(web.Source, e.Uri, e.IsUserInitiated))
+                {
+                    _ = OpenTelegramPreviewPopupAsync(e);
+                    return;
+                }
                 if (!SettingsStore.TryWebAddress(e.Uri, out var requested)) return;
                 e.Handled = true;
                 _owner.Dispatcher.BeginInvoke(new Action(async () =>
@@ -1042,9 +1065,8 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
                     _ = DisarmAlbumAsync();
                     RefreshAlbumBar("Telegram navigated. Retry attachment in the correct chat.");
                 }
-                if (ReferenceEquals(_active, tab) &&
-                    SettingsStore.TryWebAddress(e.Uri, out var next))
-                    _address.Text = next.AbsoluteUri;
+                if (ReferenceEquals(_active, tab))
+                    _address.Text = e.Uri;
             };
             web.SourceChanged += (_, _) =>
             {

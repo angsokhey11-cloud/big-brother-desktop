@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.27
+APPROVED_VERSION=0.3.29
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -298,3 +298,11 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User confirmed v0.3.25 native seven-photo Telegram attachment and correct arrangement on Windows. User requested native A/R PDF sharing and explicitly authorized v0.3.27 publication. This release includes the v0.3.26 toolbar relocation above Telegram and abandoned-album recovery, and extends the restricted native transfer to one authorized PDF (up to 65 MB) with safe filename handling and document picker validation. Existing PDF generation, authorization, save fallback, photo order, and user-controlled Send are retained. No PWA or APK changes.
 - Windows development CI run 45610285857 passed on exact main commit a5dac920445583acfdb599aafeea9acbced443eb. Simulated PDF transfer and cancellation checks passed. Actual Telegram PDF attachment and relocated toolbar remain to be tested on the user's Windows device.
 - Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.29 — Built-in PDF viewer and independent Browser
+
+- User confirmed v0.3.27 native PDF attachment success, requested internal PDF viewing and explicitly requested that the open Browser remain visible while working in other Windows applications. User explicitly authorized v0.3.29 publication.
+- Includes v0.3.28 PDF viewer (Telegram preview popups, completed downloaded PDF and native local file picker) and v0.3.29 independent bounded opaque Browser, with only the launcher hidden on app switching. Manual minimize, full close, pointer-capture cleanup, existing photo/PDF sharing, and app shutdown cleanup retained.
+- First CI rejected outdated blanket topmost/ownership assertions. Updated legacy regression guards to require exactly one bounded opaque topmost Browser, non-topmost launcher, no composition overlay and no automatic focus stealing. Windows development CI run 45613977604 passed on exact main commit 791bc89779e2daede345276dd4bc145ff5868313. Actual PDF preview, independent visibility and other-app mouse interaction require Windows user testing.
+- Internal consent-controlled development prerelease only; no forced install or restart, staff production rollout, database migration, PWA or APK changes.

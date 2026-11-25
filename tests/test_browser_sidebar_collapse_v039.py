@@ -45,9 +45,10 @@ checks={
     "Open browser tabs survive sidebar collapse":
         "SetSidebarCollapsed(bool collapsed)" in browser
         and "DisposeTabs();" not in browser.split("public void SetSidebarCollapsed(bool collapsed)",1)[1].split("public void Refresh()",1)[0],
-    "No topmost overlays or composition mouse interception":
-        "Topmost = true" not in browser
-        and "Topmost = false" in browser
+    "Only bounded opaque Browser may stay on top; launcher remains non-topmost":
+        browser.count("Topmost = true") == 1
+        and "Topmost = true" in browser.split("_browserWindow = new Window",1)[1].split("};",1)[0]
+        and "Topmost = false" in browser.split("_bubbleWindow = new Window",1)[1].split("};",1)[0]
         and "WebView2CompositionControl" not in main+browser,
 }
 for label, passed in checks.items():
