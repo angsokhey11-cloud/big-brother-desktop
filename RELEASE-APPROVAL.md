@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.24
+APPROVED_VERSION=0.3.25
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -283,4 +283,11 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 
 - User requested that accounting Share to Telegram links use the existing native Browser and explicitly authorized publication. Accounting WebView routes HTTPS Telegram Web and t.me/share/url popup requests to the existing Browser profile and tabs; generic landing requests reuse a live Telegram tab. Existing tabs, print popups, document generation and direct bot sends are preserved. Explicit share links retain their URL. Runtime verification on Windows remains pending.
 - Windows development CI run 45578216148 passed on exact main commit 9f876c17eb9210ac0f05ad2c9b6718d52636e5aa.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.25 — Native A/R album sharing pilot
+
+- User requested and explicitly approved publication of Windows native A/R album sharing using the existing Browser. The Desktop-only bundle patch preserves the selected summary-first photo order, groups of up to ten, and folder fallback. A restricted local transfer stages photos for an explicitly armed Telegram Web photo picker. The user chooses the recipient, verifies preview order, and sends manually. Non-photo documents retain their existing folder workflow. Android and PWA remain unchanged.
+- Windows development CI run 45607242189 passed on exact main commit 318383e50350aed1054fb9037ff8fca40dec1bd3. Simulated ordered-transfer checks passed; actual Telegram Web attachment compatibility and photo order remain unverified on the user's Windows device. Temporary attached files are retained until session cleanup, with stale unlocked session cleanup on subsequent use.
 - Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.

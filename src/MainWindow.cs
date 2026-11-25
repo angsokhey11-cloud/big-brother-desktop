@@ -30,6 +30,7 @@ internal sealed class MainWindow : Window
 
     private readonly WorkstationSettings _preferences = SettingsStore.Load();
     private readonly GlobalBrowserWorkspace _globalBrowser;
+    private readonly NativeAlbumTransfer _nativeAlbum;
     private readonly WebView2 _workspaceView = new();
     private readonly WebView2 _browserView = new();
     private readonly Canvas _overlay = new();
@@ -334,6 +335,7 @@ internal sealed class MainWindow : Window
     public MainWindow()
     {
         _globalBrowser = new GlobalBrowserWorkspace(this, _preferences);
+        _nativeAlbum = new NativeAlbumTransfer(_globalBrowser);
         Title = DesktopTitle;
         Width = 1380;
         Height = 880;
@@ -403,6 +405,7 @@ internal sealed class MainWindow : Window
             // The user data directories are not deleted. Only native WebView2
             // handles are disposed after the application window has closed.
             _globalBrowser.Dispose();
+            _nativeAlbum.Dispose();
             _browserView.Dispose();
             _workspaceView.Dispose();
         };
@@ -1323,6 +1326,7 @@ internal sealed class MainWindow : Window
             // top-level Dashboard document. No privileged host objects or
             // accounting commands are exposed to the page.
             web.Settings.IsWebMessageEnabled = true;
+            _nativeAlbum.Bind(web);
             web.Settings.IsStatusBarEnabled = false;
             web.WebMessageReceived += (_, args) =>
             {

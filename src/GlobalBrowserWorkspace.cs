@@ -22,7 +22,7 @@ namespace BBDesktop;
 /// clicks in other desktop applications. Every tab shares the existing browser
 /// profile but has an independent WebView2 document and history.
 /// </summary>
-internal sealed class GlobalBrowserWorkspace : IDisposable
+internal sealed partial class GlobalBrowserWorkspace : IDisposable
 {
     private const string TelegramUrl = "https://web.telegram.org/";
     private const int MaxTabs = 8;
@@ -433,6 +433,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         };
         Grid.SetColumn(_resizeGrip, 1);
         footer.Children.Add(_resizeGrip);
+        BuildAlbumBar();
         RefreshShortcuts();
     }
 
@@ -928,6 +929,7 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
 
     private void Activate(BrowserTab tab)
     {
+        CancelArmIfTabChanges(tab);
         if (!_tabs.Contains(tab)) return;
         _active = tab;
         foreach (var each in _tabs)
@@ -975,6 +977,11 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
 
     private void CloseTab(BrowserTab tab)
     {
+        if (_albumArm is { } arm && ReferenceEquals(arm.Tab, tab))
+        {
+            _ = DisarmAlbumAsync();
+            RefreshAlbumBar();
+        }
         if (!_tabs.Remove(tab)) return;
         _content.Children.Remove(tab.View);
         tab.View.Dispose();
@@ -985,6 +992,8 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
 
     private void DisposeTabs()
     {
+        _ = DisarmAlbumAsync();
+        RefreshAlbumBar();
         foreach (var timer in _clickTimers) timer.Stop();
         foreach (var tab in _tabs)
         {
@@ -1027,6 +1036,11 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
             };
             web.NavigationStarting += (_, e) =>
             {
+                if (_albumArm is { } arm && ReferenceEquals(arm.Tab, tab) && !arm.Consuming)
+                {
+                    _ = DisarmAlbumAsync();
+                    RefreshAlbumBar("Telegram navigated. Retry attachment in the correct chat.");
+                }
                 if (ReferenceEquals(_active, tab) &&
                     SettingsStore.TryWebAddress(e.Uri, out var next))
                     _address.Text = next.AbsoluteUri;
