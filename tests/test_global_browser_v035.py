@@ -74,3 +74,19 @@ for k,v in checks.items():
     assert v,"FAILED "+k
     print("PASS "+k)
 print("PASS global browser home, tabs and close lifecycle contract")
+
+# Accounting Telegram share uses the existing Browser, not default WebView popups.
+route=m.split("private void OnAccountingNewWindowRequested(",1)[1].split("private void QueueTelegramShareDispatch()",1)[0]
+assert "web.NewWindowRequested += OnAccountingNewWindowRequested;" in m
+assert "TryTelegramShareUri(args.Uri, out var target)" in route and "args.Handled = true;" in route
+assert route.index("TryTelegramShareUri") < route.index("args.Handled = true;")
+assert "_globalBrowser.OpenTelegramShareAsync(target)" in m
+allow=b.split("internal static bool TryTelegramShareUri(",1)[1].split("private static Uri? TabAddress",1)[0]
+assert all(x in allow for x in ('Uri.UriSchemeHttps','uri.IsDefaultPort','uri.UserInfo.Length != 0','"web.telegram.org"','"t.me"','"/share/url"'))
+share=b.split("public async Task OpenTelegramShareAsync(Uri target)",1)[1].split("private void Open()",1)[0]
+assert "OpenFromDesktopMenu();" in share and "Activate(matching);" in share
+assert "IsTelegramLanding(safe)" in share and "current.AbsoluteUri, safe.AbsoluteUri" in share
+assert "each.IsHome) ?? CreateTab()" in share and "await NavigateAsync(safe.AbsoluteUri)" in share
+assert "CloseAll()" not in share and "DisposeTabs()" not in share and "new Window" not in share
+assert "No existing tab was overwritten." in share
+print("PASS accounting Telegram links share existing Browser session, preserve URL and unrelated popups")
