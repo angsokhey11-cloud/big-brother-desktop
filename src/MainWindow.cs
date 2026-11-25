@@ -49,6 +49,8 @@ internal sealed class MainWindow : Window
     private bool _browserStarting;
     private bool _panelOpen;
     private bool _invoiceScopeActive;
+    private int _accountingDialogDepth;
+    private bool _workspaceFocusQueued;
 
     // The embedded browser belongs to the Invoice Generator only. The browser
     // stays alive if the user switches accounting functions.
@@ -209,6 +211,79 @@ internal sealed class MainWindow : Window
           bind();
         })();
         """;
+
+    // Bind the real Dashboard iframe, including when the bootstrap replaces
+    // its document via document.write. Ignore the temporary about:blank load.
+    private const string WorkspaceFocusSignalScript = """
+        (function(){
+          if(window!==window.top || location.origin!=='https://app.bigbrother.test' ||
+             location.pathname!=='/big-brother-dashboard/index.html')return;
+          if(window.__bbWorkspaceFocusSignalV1)return;
+          window.__bbWorkspaceFocusSignalV1=true;
+          let bound=null;
+          function onLoad(){
+            const frame=document.getElementById('moduleFrame');
+            if(!frame||frame!==bound||frame.dataset.module!=='invoice'||
+               document.getElementById('moduleWorkspace')?.hidden)return;
+            try{
+              const u=new URL(frame.contentWindow.location.href);
+              if(u.origin!==location.origin||!u.pathname.startsWith('/big-brother-invoice-generator/'))return;
+              window.chrome?.webview?.postMessage('bbDesktopInvoiceFocusReadyV1');
+            }catch(_){}
+          }
+          function bind(){
+            const frame=document.getElementById('moduleFrame');
+            if(frame===bound)return;
+            bound?.removeEventListener('load',onLoad);
+            bound=frame;
+            bound?.addEventListener('load',onLoad);
+          }
+          new MutationObserver(bind).observe(document,{childList:true,subtree:true});
+          bind();
+        })();
+        """;
+
+    private const string RestoreInvoiceFrameFocusScript = """
+        (function(){
+          const frame=document.getElementById('moduleFrame');
+          if(!frame||frame.dataset.module!=='invoice'||
+             document.getElementById('moduleWorkspace')?.hidden)return;
+          try{
+            const u=new URL(frame.contentWindow.location.href);
+            if(u.origin!==location.origin||!u.pathname.startsWith('/big-brother-invoice-generator/'))return;
+            const active=document.activeElement;
+            if(active===document.body||active===document.documentElement||active===frame){
+              // Never choose a field or change the user's current text selection.
+              if(active!==frame)frame.focus({preventScroll:true});
+            }
+          }catch(_){}
+        })();
+        """;
+
+    // A single, deferred focus handoff; never activate Windows or steal focus
+    // from another application, an owned browser, or an open modal dialog.
+    private void QueueWorkspaceFocus(bool invoiceFrame)
+    {
+        if (_workspaceFocusQueued || _accountingDialogDepth != 0 || !IsActive) return;
+        _workspaceFocusQueued = true;
+        _ = Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            _workspaceFocusQueued = false;
+            if (!IsLoaded || !IsVisible || !IsActive ||
+                WindowState == WindowState.Minimized || _accountingDialogDepth != 0 ||
+                _workspaceView.CoreWebView2 == null) return;
+            try
+            {
+                _workspaceView.Focus();
+                if (invoiceFrame)
+                    await _workspaceView.CoreWebView2.ExecuteScriptAsync(RestoreInvoiceFrameFocusScript);
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.WriteLine("BIG BROTHER workspace focus: " + error.Message);
+            }
+        }), DispatcherPriority.ContextIdle);
+    }
 
     public MainWindow()
     {
@@ -1217,17 +1292,21 @@ internal sealed class MainWindow : Window
                     _globalBrowser.SetSidebarCollapsed(true);
                 else if (message == "bbDesktopSidebarCollapsedV1:0")
                     _globalBrowser.SetSidebarCollapsed(false);
+                else if (message == "bbDesktopInvoiceFocusReadyV1")
+                    QueueWorkspaceFocus(invoiceFrame: true);
             };
             // Remove old Invoice-scoped iframe polling and use the global
             // native Browser Workspace instead.
             await web.AddScriptToExecuteOnDocumentCreatedAsync(HideWebInvoiceBubbleScript);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(DashboardSidebarVisibilityScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(WorkspaceFocusSignalScript);
             web.NavigationCompleted += async (_, e) =>
             {
                 _workspaceStatus.Text = e.IsSuccess ? "Installed Dashboard / function loaded" : "Local accounting page failed to load";
                 try
                 {
                     await web.ExecuteScriptAsync(HideWebInvoiceBubbleScript);
+                    await web.ExecuteScriptAsync(WorkspaceFocusSignalScript);
                 }
                 catch { /* This may occur during navigation. */ }
             };
@@ -1250,6 +1329,7 @@ internal sealed class MainWindow : Window
         CoreWebView2ScriptDialogOpeningEventArgs args)
     {
         var deferred = args.GetDeferral();
+        _accountingDialogDepth++;
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
             try
@@ -1301,7 +1381,12 @@ internal sealed class MainWindow : Window
             }
             finally
             {
-                deferred.Complete();
+                try { deferred.Complete(); }
+                finally
+                {
+                    _accountingDialogDepth--;
+                    QueueWorkspaceFocus(invoiceFrame: false);
+                }
             }
         }), DispatcherPriority.Normal);
     }
