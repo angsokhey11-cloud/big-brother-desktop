@@ -83,6 +83,33 @@ def patch_desktop_telegram_tool_origin(repo: str, relative: str, data: str) -> s
     return data.replace(original, local, 1)
 
 
+def patch_desktop_native_ar_album(repo: str, relative: str, data: str) -> str:
+    if repo != "big-brother-ar" or relative != "receivable-batch-real-invoice-v1.js":
+        return data
+    helper = (ROOT / "tools" / "native_ar_album_patch.js").read_text(encoding="utf-8")
+    replacements = [
+        ("function shareDesktopPictures(pkg){", helper + "\nfunction shareDesktopPictures(pkg){"),
+        ("row.append(labels,addButton(label,()=>{void prepareDesktopGroup(index)},!!folder));",
+         """row.append(labels);
+   if(nativeAlbumAvailable())row.append(addButton('Attach '+count+' Photos in Browser',()=>{void prepareNativeAlbum(index)},false));
+   row.append(addButton(nativeAlbumAvailable()?'Folder fallback':label,()=>{void prepareDesktopGroup(index)},true));"""),
+        ("const total=plan.groups.reduce((n,group)=>n+group.length,0);",
+         """const total=plan.groups.reduce((n,group)=>n+group.length,0);
+  if(nativeAlbumAvailable()){
+   indicator('Choose the correct Telegram chat and attach photos in our Browser. Folder fallback remains available.');
+   if(plan.groups.length===1&&!plan.documents.length)void prepareNativeAlbum(0);
+   return;
+  }"""),
+        ("help.textContent='Prepare each group of up to 10 pictures in a folder you choose.",
+         """help.textContent=nativeAlbumAvailable()?'Windows native album pilot: attach each group in our Browser in order. Choose the recipient, click Attach photos, then Telegram Photo or Video. Verify the preview before Send. Folder fallback is available.':'Prepare each group of up to 10 pictures in a folder you choose."""),
+    ]
+    for before, after in replacements:
+        if data.count(before) != 1:
+            raise RuntimeError("Native A/R album source marker changed: " + before)
+        data = data.replace(before, after, 1)
+    return data
+
+
 def bundle() -> None:
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     owner = lock["owner"]
@@ -146,6 +173,7 @@ def bundle() -> None:
                     data = patch_desktop_telegram_tool_origin(
                         name, rel.as_posix(), data
                     )
+                    data = patch_desktop_native_ar_album(name, rel.as_posix(), data)
                     for url in HTTP_RE.findall(data):
                         host = urlparse(url).netloc.lower()
                         if host not in ("app.bigbrother.test", "angsokhey11-cloud.github.io"):
