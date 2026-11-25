@@ -35,3 +35,18 @@ for name,ok in checks.items():
  assert ok, "FAILED: "+name
  print("PASS",name)
 print("PASS Desktop System Alert and update branding.")
+
+# Workspace focus recovery is shared, local and event-driven.
+focus=main.split("private void QueueWorkspaceFocus()",1)[1].split("public MainWindow()",1)[0]
+signal=main.split('private const string WorkspaceFocusSignalScript = """',1)[1].split('""";',1)[0]
+restore=main.split('private const string RestoreWorkspaceFrameFocusScript = """',1)[1].split('""";',1)[0]
+assert "WindowState == WindowState.Minimized" in focus and "!IsActive" in focus and "_accountingDialogDepth != 0" in focus
+assert "_workspaceView.Focus();" in focus and "DispatcherPriority.ContextIdle" in focus
+assert ".Activate()" not in focus and "DispatcherTimer" not in focus
+assert "bbDesktopWorkspaceFocusReadyV2" in signal and "bbDesktopWorkspaceFocusReadyV2" in main
+assert "frame.contentWindow.location.href" in signal and "u.origin!==location.origin" in signal
+assert "frame.dataset.module" not in signal and "frame.dataset.module" not in restore
+assert "workspace.hidden" in signal and "home&&wasHome===false" in signal
+assert "active===document.body||active===document.documentElement" in restore
+assert main.count("QueueWorkspaceFocus();")==2 and "_accountingDialogDepth--;" in main
+print("PASS shared native workspace and dialog focus recovery guards")

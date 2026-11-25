@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.22
+APPROVED_VERSION=0.3.23
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -270,3 +270,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User confirmed the shared Bank Review fix works in Telegram Mini App and requested Windows delivery. Notification Center pin c636c02e6d5a14fc7a063d239e93815d2693fad2 replaces native directory confirmation popups with an in-page dialog and preserves unrelated transaction cards and selections during saves. Existing registration and directory RPCs, KHQR Hash-versus-STAND safeguards and admin checks remain unchanged.
 - Windows development CI run 45551899833 passed on exact main commit defbde09f989c69d7f8b58d16c15228cd34f855e. The previous build failed on an outdated exact-revision assertion; this was corrected without removing safety checks. Installed Windows focus behavior requires user acceptance testing.
 - Internal consent-controlled development prerelease only; no automatic installation or restart, staff production rollout, database migrations or accounting transaction changes.
+
+
+## Approved v0.3.23 — Universal workspace focus recovery
+
+- User requested universal Windows focus recovery for function transitions and native dialog closure, and authorized publishing the update. Shared workspace signal covers all visible same-origin accounting modules and Dashboard Home; temporary blank and external frames are ignored. Existing active input selection, foreground-window safeguards, and accounting logic are preserved.
+- Windows development CI run 45555346368 passed on exact main commit efc0a118a7845c87ea5b1a74622e37682bd6eeab. Eight representative module paths and focus guard scenarios also passed simulated testing. Windows real-device acceptance remains pending.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.

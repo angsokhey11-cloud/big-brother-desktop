@@ -49,6 +49,8 @@ internal sealed class MainWindow : Window
     private bool _browserStarting;
     private bool _panelOpen;
     private bool _invoiceScopeActive;
+    private int _accountingDialogDepth;
+    private bool _workspaceFocusQueued;
 
     // The embedded browser belongs to the Invoice Generator only. The browser
     // stays alive if the user switches accounting functions.
@@ -209,6 +211,89 @@ internal sealed class MainWindow : Window
           bind();
         })();
         """;
+
+    // All installed Dashboard modules share one workspace WebView. Signal
+    // only a loaded, visible, same-origin module or a return to Dashboard Home.
+    // The temporary about:blank navigation must never trigger focus recovery.
+    private const string WorkspaceFocusSignalScript = """
+        (function(){
+          if(window!==window.top || location.origin!=='https://app.bigbrother.test' ||
+             location.pathname!=='/big-brother-dashboard/index.html')return;
+          if(window.__bbWorkspaceFocusSignalV2)return;
+          window.__bbWorkspaceFocusSignalV2=true;
+          let bound=null,wasHome=null;
+          function signal(){
+            try{window.chrome?.webview?.postMessage('bbDesktopWorkspaceFocusReadyV2');}catch(_){}
+          }
+          function onLoad(){
+            const frame=document.getElementById('moduleFrame');
+            const workspace=document.getElementById('moduleWorkspace');
+            if(!frame||frame!==bound||!workspace||workspace.hidden)return;
+            try{
+              const u=new URL(frame.contentWindow.location.href);
+              if(u.origin!==location.origin||u.pathname==='/')return;
+              signal();
+            }catch(_){}
+          }
+          function bind(){
+            const frame=document.getElementById('moduleFrame');
+            const workspace=document.getElementById('moduleWorkspace');
+            if(frame!==bound){
+              bound?.removeEventListener('load',onLoad);
+              bound=frame;
+              bound?.addEventListener('load',onLoad);
+            }
+            if(!workspace)return;
+            const home=workspace.hidden;
+            if(home&&wasHome===false)signal();
+            wasHome=home;
+          }
+          new MutationObserver(bind).observe(document,{
+            childList:true,subtree:true,attributes:true,attributeFilter:['hidden']
+          });
+          bind();
+        })();
+        """;
+
+    private const string RestoreWorkspaceFrameFocusScript = """
+        (function(){
+          const frame=document.getElementById('moduleFrame');
+          const workspace=document.getElementById('moduleWorkspace');
+          if(!frame||!workspace||workspace.hidden)return;
+          try{
+            const u=new URL(frame.contentWindow.location.href);
+            if(u.origin!==location.origin||u.pathname==='/')return;
+            const active=document.activeElement;
+            // Preserve active controls and text selection in the shell or frame.
+            if(active===document.body||active===document.documentElement)
+              frame.focus({preventScroll:true});
+          }catch(_){}
+        })();
+        """;
+
+    // A single, deferred focus handoff; never activate Windows or steal focus
+    // from another application, an owned browser, or an open modal dialog.
+    private void QueueWorkspaceFocus()
+    {
+        if (_workspaceFocusQueued || _accountingDialogDepth != 0) return;
+        _workspaceFocusQueued = true;
+        _ = Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            _workspaceFocusQueued = false;
+            if (!IsLoaded || !IsVisible || !IsActive ||
+                WindowState == WindowState.Minimized || _accountingDialogDepth != 0 ||
+                _workspaceView.CoreWebView2 == null) return;
+            try
+            {
+                _workspaceView.Focus();
+                await _workspaceView.CoreWebView2.ExecuteScriptAsync(RestoreWorkspaceFrameFocusScript);
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.WriteLine("BIG BROTHER workspace focus: " + error.Message);
+            }
+        }), DispatcherPriority.ContextIdle);
+    }
 
     public MainWindow()
     {
@@ -1217,17 +1302,21 @@ internal sealed class MainWindow : Window
                     _globalBrowser.SetSidebarCollapsed(true);
                 else if (message == "bbDesktopSidebarCollapsedV1:0")
                     _globalBrowser.SetSidebarCollapsed(false);
+                else if (message == "bbDesktopWorkspaceFocusReadyV2")
+                    QueueWorkspaceFocus();
             };
             // Remove old Invoice-scoped iframe polling and use the global
             // native Browser Workspace instead.
             await web.AddScriptToExecuteOnDocumentCreatedAsync(HideWebInvoiceBubbleScript);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(DashboardSidebarVisibilityScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(WorkspaceFocusSignalScript);
             web.NavigationCompleted += async (_, e) =>
             {
                 _workspaceStatus.Text = e.IsSuccess ? "Installed Dashboard / function loaded" : "Local accounting page failed to load";
                 try
                 {
                     await web.ExecuteScriptAsync(HideWebInvoiceBubbleScript);
+                    await web.ExecuteScriptAsync(WorkspaceFocusSignalScript);
                 }
                 catch { /* This may occur during navigation. */ }
             };
@@ -1250,6 +1339,7 @@ internal sealed class MainWindow : Window
         CoreWebView2ScriptDialogOpeningEventArgs args)
     {
         var deferred = args.GetDeferral();
+        _accountingDialogDepth++;
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
             try
@@ -1301,7 +1391,12 @@ internal sealed class MainWindow : Window
             }
             finally
             {
-                deferred.Complete();
+                try { deferred.Complete(); }
+                finally
+                {
+                    _accountingDialogDepth--;
+                    QueueWorkspaceFocus();
+                }
             }
         }), DispatcherPriority.Normal);
     }
