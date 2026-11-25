@@ -212,6 +212,21 @@ internal sealed class NativeAlbumTransfer : IDisposable
         if (ReferenceEquals(_transfer?.Frame, frame)) Abort();
     }
 
+    internal static void DiscardUnattached(string[] paths)
+    {
+        // Only a native-created album directory containing the supplied files.
+        if (paths.Length == 0) return;
+        var folder = Path.GetDirectoryName(paths[0]);
+        if (folder is null || !Guid.TryParseExact(Path.GetFileName(folder), "N", out _) ||
+            paths.Any(p => Path.GetDirectoryName(p) != folder)) return;
+        var session = Path.GetDirectoryName(folder);
+        if (session is null || !Guid.TryParseExact(Path.GetFileName(session), "N", out _)) return;
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BIG BROTHER", "Desktop", "TemporaryAlbums");
+        if (!string.Equals(Path.GetDirectoryName(session), root, StringComparison.OrdinalIgnoreCase)) return;
+        DeleteFolder(folder);
+    }
+
     private static void DeleteFolder(string folder)
     {
         try
