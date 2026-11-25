@@ -212,57 +212,68 @@ internal sealed class MainWindow : Window
         })();
         """;
 
-    // Bind the real Dashboard iframe, including when the bootstrap replaces
-    // its document via document.write. Ignore the temporary about:blank load.
+    // All installed Dashboard modules share one workspace WebView. Signal
+    // only a loaded, visible, same-origin module or a return to Dashboard Home.
+    // The temporary about:blank navigation must never trigger focus recovery.
     private const string WorkspaceFocusSignalScript = """
         (function(){
           if(window!==window.top || location.origin!=='https://app.bigbrother.test' ||
              location.pathname!=='/big-brother-dashboard/index.html')return;
-          if(window.__bbWorkspaceFocusSignalV1)return;
-          window.__bbWorkspaceFocusSignalV1=true;
-          let bound=null;
+          if(window.__bbWorkspaceFocusSignalV2)return;
+          window.__bbWorkspaceFocusSignalV2=true;
+          let bound=null,wasHome=null;
+          function signal(){
+            try{window.chrome?.webview?.postMessage('bbDesktopWorkspaceFocusReadyV2');}catch(_){}
+          }
           function onLoad(){
             const frame=document.getElementById('moduleFrame');
-            if(!frame||frame!==bound||frame.dataset.module!=='invoice'||
-               document.getElementById('moduleWorkspace')?.hidden)return;
+            const workspace=document.getElementById('moduleWorkspace');
+            if(!frame||frame!==bound||!workspace||workspace.hidden)return;
             try{
               const u=new URL(frame.contentWindow.location.href);
-              if(u.origin!==location.origin||!u.pathname.startsWith('/big-brother-invoice-generator/'))return;
-              window.chrome?.webview?.postMessage('bbDesktopInvoiceFocusReadyV1');
+              if(u.origin!==location.origin||u.pathname==='/')return;
+              signal();
             }catch(_){}
           }
           function bind(){
             const frame=document.getElementById('moduleFrame');
-            if(frame===bound)return;
-            bound?.removeEventListener('load',onLoad);
-            bound=frame;
-            bound?.addEventListener('load',onLoad);
+            const workspace=document.getElementById('moduleWorkspace');
+            if(frame!==bound){
+              bound?.removeEventListener('load',onLoad);
+              bound=frame;
+              bound?.addEventListener('load',onLoad);
+            }
+            if(!workspace)return;
+            const home=workspace.hidden;
+            if(home&&wasHome===false)signal();
+            wasHome=home;
           }
-          new MutationObserver(bind).observe(document,{childList:true,subtree:true});
+          new MutationObserver(bind).observe(document,{
+            childList:true,subtree:true,attributes:true,attributeFilter:['hidden']
+          });
           bind();
         })();
         """;
 
-    private const string RestoreInvoiceFrameFocusScript = """
+    private const string RestoreWorkspaceFrameFocusScript = """
         (function(){
           const frame=document.getElementById('moduleFrame');
-          if(!frame||frame.dataset.module!=='invoice'||
-             document.getElementById('moduleWorkspace')?.hidden)return;
+          const workspace=document.getElementById('moduleWorkspace');
+          if(!frame||!workspace||workspace.hidden)return;
           try{
             const u=new URL(frame.contentWindow.location.href);
-            if(u.origin!==location.origin||!u.pathname.startsWith('/big-brother-invoice-generator/'))return;
+            if(u.origin!==location.origin||u.pathname==='/')return;
             const active=document.activeElement;
-            if(active===document.body||active===document.documentElement||active===frame){
-              // Never choose a field or change the user's current text selection.
-              if(active!==frame)frame.focus({preventScroll:true});
-            }
+            // Preserve active controls and text selection in the shell or frame.
+            if(active===document.body||active===document.documentElement)
+              frame.focus({preventScroll:true});
           }catch(_){}
         })();
         """;
 
     // A single, deferred focus handoff; never activate Windows or steal focus
     // from another application, an owned browser, or an open modal dialog.
-    private void QueueWorkspaceFocus(bool invoiceFrame)
+    private void QueueWorkspaceFocus()
     {
         if (_workspaceFocusQueued || _accountingDialogDepth != 0) return;
         _workspaceFocusQueued = true;
@@ -275,8 +286,7 @@ internal sealed class MainWindow : Window
             try
             {
                 _workspaceView.Focus();
-                if (invoiceFrame)
-                    await _workspaceView.CoreWebView2.ExecuteScriptAsync(RestoreInvoiceFrameFocusScript);
+                await _workspaceView.CoreWebView2.ExecuteScriptAsync(RestoreWorkspaceFrameFocusScript);
             }
             catch (Exception error)
             {
@@ -1292,8 +1302,8 @@ internal sealed class MainWindow : Window
                     _globalBrowser.SetSidebarCollapsed(true);
                 else if (message == "bbDesktopSidebarCollapsedV1:0")
                     _globalBrowser.SetSidebarCollapsed(false);
-                else if (message == "bbDesktopInvoiceFocusReadyV1")
-                    QueueWorkspaceFocus(invoiceFrame: true);
+                else if (message == "bbDesktopWorkspaceFocusReadyV2")
+                    QueueWorkspaceFocus();
             };
             // Remove old Invoice-scoped iframe polling and use the global
             // native Browser Workspace instead.
@@ -1385,7 +1395,7 @@ internal sealed class MainWindow : Window
                 finally
                 {
                     _accountingDialogDepth--;
-                    QueueWorkspaceFocus(invoiceFrame: false);
+                    QueueWorkspaceFocus();
                 }
             }
         }), DispatcherPriority.Normal);
