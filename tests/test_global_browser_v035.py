@@ -108,3 +108,12 @@ assert "TrySetPreparedAlbum(t.Paths)" in transfer and "OpenTelegramShareAsync(ne
 assert "for(let i=0;i<files.length;i++)" in patch and "summary:index===0&&i===0" in patch
 assert "Folder fallback" in bundle and "patch_desktop_native_ar_album(name, rel.as_posix(), data)" in bundle
 print("PASS scoped ordered native A/R photo staging and user-controlled Telegram picker guards")
+
+# Album controls must occupy their own visible row above the WebView and footer.
+assert "_layout.RowDefinitions.Insert(4, _albumRow);" in album
+assert "Grid.SetRow(bar, 4);" in album
+assert "Grid.SetRow(_content, 5);" in b and "Grid.SetRow(footer, 6);" in b
+assert "_layout.InvalidateMeasure();" in album
+assert "DiscardAlbumOnBrowserClose();" in b
+assert "NativeAlbumTransfer.DiscardUnattached(discarded);" in album
+print("PASS prepared album controls above Telegram and abandoned-album recovery")
