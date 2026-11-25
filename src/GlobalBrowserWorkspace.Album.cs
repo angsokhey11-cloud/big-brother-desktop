@@ -42,7 +42,9 @@ internal sealed partial class GlobalBrowserWorkspace
 
     private void BuildAlbumBar()
     {
-        _layout.RowDefinitions.Add(_albumRow);
+        // Keep sharing controls above the native WebView, not below the footer
+        // where a full-height Browser may extend beyond the visible screen.
+        _layout.RowDefinitions.Insert(4, _albumRow);
         var bar = new DockPanel { Background = Paint("#e2f4ec"), LastChildFill = true, ClipToBounds = true };
         _albumBar = bar;
         _albumAttach = Button("Attach album", "#14834c", "#ffffff", 116);
@@ -69,21 +71,33 @@ internal sealed partial class GlobalBrowserWorkspace
         _albumHint.TextWrapping = TextWrapping.Wrap;
         _albumHint.VerticalAlignment = VerticalAlignment.Center;
         bar.Children.Add(_albumHint);
-        Grid.SetRow(bar, 6);
+        Grid.SetRow(bar, 4);
         _layout.Children.Add(bar);
+        RefreshAlbumBar();
+    }
+
+    private void DiscardAlbumOnBrowserClose()
+    {
+        if (_albumBusy) return;
+        _ = DisarmAlbumAsync();
+        var discarded = _preparedAlbum;
+        _preparedAlbum = null;
+        if (discarded is not null) NativeAlbumTransfer.DiscardUnattached(discarded);
         RefreshAlbumBar();
     }
 
     private void RefreshAlbumBar(string? hint = null)
     {
-        _albumRow.Height = new GridLength(_preparedAlbum is null ? 0 : 48);
+        _albumRow.Height = new GridLength(_preparedAlbum is null ? 0 : 56);
         if (_albumBar is not null) _albumBar.Visibility = _preparedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         if (_albumAttach is null || _albumDiscard is null) return;
         _albumAttach.Content = _albumArm is null
             ? $"Attach {_preparedAlbum?.Length ?? 0} photos" : "Cancel attach";
         _albumAttach.IsEnabled = !_albumBusy;
         _albumDiscard.IsEnabled = !_albumBusy;
-        _albumHint.Text = hint ?? "Choose the correct Telegram chat, then Attach photos.";
+        _albumHint.Text = hint ?? "Select the customer chat, then Attach photos.";
+        _layout.InvalidateMeasure();
+        _layout.InvalidateArrange();
     }
 
     public bool TrySetPreparedAlbum(string[] paths)
