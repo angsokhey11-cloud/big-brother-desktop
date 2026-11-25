@@ -90,3 +90,21 @@ assert "each.IsHome) ?? CreateTab()" in share and "await NavigateAsync(safe.Abso
 assert "CloseAll()" not in share and "DisposeTabs()" not in share and "new Window" not in share
 assert "No existing tab was overwritten." in share
 print("PASS accounting Telegram links share existing Browser session, preserve URL and unrelated popups")
+
+# Native A/R album pilot is limited to installed A/R frames and explicit Telegram photo picker.
+album=(root/"src/GlobalBrowserWorkspace.Album.cs").read_text(encoding="utf-8")
+transfer=(root/"src/NativeAlbumTransfer.cs").read_text(encoding="utf-8")
+patch=(root/"tools/native_ar_album_patch.js").read_text(encoding="utf-8")
+bundle=(root/"tools/bundle_web.py").read_text(encoding="utf-8")
+assert "_nativeAlbum.Bind(web);" in m and "_nativeAlbum.Dispose();" in m
+assert "frame.WebMessageReceived" in transfer and "IsAllowedSource(args.Source)" in transfer
+assert 'u.AbsolutePath is "/big-brother-ar/"' in transfer and 'or "/big-brother-ar/your-receivable.html"' in transfer
+assert "files.GetArrayLength() is < 1 or > 10" in transfer and "index != t.Index" in transfer and "offset != t.Offset" in transfer
+assert "MaxBytes = 65L" in transfer and "FileShare.None" in transfer and "Guid.NewGuid()" in transfer
+assert "DOM.setFileInputFiles" in album and "files = arm.Files" in album and "Page.fileChooserOpened" in album
+assert "selectMultiple" in album and "Page.getFrameTree" in album and "arm.Web.Source != arm.Address" in album
+assert "Page.setInterceptFileChooserDialog" in album and "TimeSpan.FromSeconds(30)" in album
+assert "TrySetPreparedAlbum(t.Paths)" in transfer and "OpenTelegramShareAsync(new Uri(TelegramUrl))" in album
+assert "for(let i=0;i<files.length;i++)" in patch and "summary:index===0&&i===0" in patch
+assert "Folder fallback" in bundle and "patch_desktop_native_ar_album(name, rel.as_posix(), data)" in bundle
+print("PASS scoped ordered native A/R photo staging and user-controlled Telegram picker guards")
