@@ -110,6 +110,33 @@ def patch_desktop_native_ar_album(repo: str, relative: str, data: str) -> str:
     return data
 
 
+def patch_desktop_native_ar_pdf(repo: str, relative: str, data: str) -> str:
+    if repo != "big-brother-ar" or relative != "receivable-audit-pdf-v1.js":
+        return data
+    helper = (ROOT / "tools" / "native_ar_pdf_patch.js").read_text(encoding="utf-8")
+    before = "async function shareCustomerPdf(event){"
+    approval = "  if(!mixedCustomerApproval(picked)){show('Sharing cancelled.');return 'cancelled';}"
+    native = """
+  if(nativePdfAvailable()){
+   buttonBusy(true);
+   show('Preparing authorized PDF for Windows sharing…');
+   const signature=selectionSignature(picked);
+   const prepared=await prepareCustomerPdf(picked);
+   await transferNativePdf(prepared.file,()=>!$('summaryOverlay')?.classList.contains('hidden')&&
+     !!$('summaryOverlay')&&selectionSignature(selectedRows())===signature);
+   show('PDF ready in our Browser. Select the customer chat, click Attach PDF, then Telegram Document or File. Review and send manually.');
+   return 'windows-ready';
+  }"""
+    # Scope the approval marker to the share function, not the Save PDF handler.
+    if data.count(before) != 1:
+        raise RuntimeError("A/R PDF share entry changed")
+    start = data.index(before)
+    head, tail = data[:start], data[start:]
+    if tail.count(approval) != 1:
+        raise RuntimeError("A/R PDF approval marker changed")
+    return head + helper + "\n" + tail.replace(approval, approval + native, 1)
+
+
 def bundle() -> None:
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     owner = lock["owner"]
@@ -174,6 +201,7 @@ def bundle() -> None:
                         name, rel.as_posix(), data
                     )
                     data = patch_desktop_native_ar_album(name, rel.as_posix(), data)
+                    data = patch_desktop_native_ar_pdf(name, rel.as_posix(), data)
                     for url in HTTP_RE.findall(data):
                         host = urlparse(url).netloc.lower()
                         if host not in ("app.bigbrother.test", "angsokhey11-cloud.github.io"):
