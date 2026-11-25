@@ -7,7 +7,7 @@ using Microsoft.Web.WebView2.Core;
 
 namespace BBDesktop;
 
-// Receives only explicitly selected A/R photo bytes, never arbitrary paths,
+// Receives only explicitly selected A/R photo or PDF bytes, never arbitrary paths,
 // credentials or commands. All paths are created by the native host.
 internal sealed class NativeAlbumTransfer : IDisposable
 {
@@ -119,7 +119,7 @@ internal sealed class NativeAlbumTransfer : IDisposable
     private void Begin(CoreWebView2Frame frame, string token, JsonElement files)
     {
         if (_transfer is not null || _browser.HasPreparedAlbum)
-            throw new InvalidOperationException("An album is already prepared. Use Attach photos or Discard above Telegram, or close Browser completely and retry.");
+            throw new InvalidOperationException("An album is already prepared. Use Attach or Discard above Telegram, or close Browser completely and retry.");
         if (files.ValueKind != JsonValueKind.Array || files.GetArrayLength() is < 1 or > 10)
             throw new InvalidOperationException("Prepare between 1 and 10 pictures per album.");
         var items = files.EnumerateArray().ToArray();
@@ -128,11 +128,29 @@ internal sealed class NativeAlbumTransfer : IDisposable
             _sessionBytes + sizes.Sum() > SessionLimit)
             throw new InvalidOperationException("Album storage limit reached. Finish sharing and reopen the app, or use folder fallback.");
         var names = new List<string>();
+        var isPdf = items.Length == 1 && string.Equals(items[0].GetProperty("extension").GetString(), ".pdf", StringComparison.OrdinalIgnoreCase);
         for (int i = 0; i < items.Length; i++)
         {
             var ext = items[i].GetProperty("extension").GetString()?.ToLowerInvariant();
+            if (isPdf && ext == ".pdf")
+            {
+                var requested = items[i].GetProperty("name").GetString() ?? "Customer Invoice Summary.pdf";
+                var stem = requested.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                    ? requested[..^4] : requested;
+                stem = new string(stem.Select(c => char.IsControl(c) || Path.GetInvalidFileNameChars().Contains(c)
+                    ? '_' : c).ToArray()).Trim(' ', '.');
+                if (stem.Length > 140) stem = stem[..140].TrimEnd(' ', '.');
+                if (string.IsNullOrWhiteSpace(stem)) stem = "Customer Invoice Summary";
+                // Keep the approved PDF name unless unsafe; always generate the folder here.
+                var device = stem.Split('.')[0].TrimEnd(' ').ToUpperInvariant();
+                if (device is "CON" or "PRN" or "AUX" or "NUL" ||
+                    System.Text.RegularExpressions.Regex.IsMatch(device, @"^(COM|LPT)[1-9¹²³]$"))
+                    stem = "_" + stem;
+                names.Add(stem + ".pdf");
+                continue;
+            }
             if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" or ".bmp"))
-                throw new InvalidOperationException("This album accepts pictures only. Use the original-document fallback for PDFs.");
+                throw new InvalidOperationException("Choose one PDF or an album of up to ten photos, not mixed files.");
             var summary = items[i].TryGetProperty("summary", out var flag) &&
                 flag.ValueKind == JsonValueKind.True;
             names.Add($"{i + 1:D2}_{(summary && i == 0 ? "Customer_Summary" : "Real_Invoice")}{ext}");
@@ -173,8 +191,15 @@ internal sealed class NativeAlbumTransfer : IDisposable
         if (t.Index != t.Paths.Length || t.Offset != 0 ||
             t.Paths.Where((p, i) => new FileInfo(p).Length != t.Sizes[i]).Any())
             throw new InvalidOperationException("Album is incomplete.");
+        if (t.Paths.Length == 1 && Path.GetExtension(t.Paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            using var stream = File.OpenRead(t.Paths[0]);
+            Span<byte> header = stackalloc byte[5];
+            if (stream.Read(header) != 5 || !header.SequenceEqual("%PDF-"u8))
+                throw new InvalidOperationException("The prepared file is not a valid PDF.");
+        }
         if (!_browser.TrySetPreparedAlbum(t.Paths))
-            throw new InvalidOperationException("An album is already prepared. Use Attach photos or Discard above Telegram, or close Browser completely and retry.");
+            throw new InvalidOperationException("An album is already prepared. Use Attach or Discard above Telegram, or close Browser completely and retry.");
         _sessionBytes += t.Sizes.Sum();
         _transfer = null;
     }
