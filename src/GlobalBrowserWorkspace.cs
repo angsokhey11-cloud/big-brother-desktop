@@ -171,15 +171,15 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         };
         _browserWindow = new Window
         {
-            // Independent, opaque, bounded tool window: remains visible while
-            // the accounting window is inactive or minimized. No owner HWND.
-            Title = "BIG BROTHER Browser",
+            // Owned, non-topmost tool window: normal Windows z-order keeps
+            // it with accounting, behind other apps, without focus-loss hiding.
+            Owner = _owner, Title = "BIG BROTHER Browser",
             Content = _layout,
             Width = _settings.PanelWidth > 0 ? _settings.PanelWidth : 740,
             Height = _settings.PanelHeight > 0 ? _settings.PanelHeight : 540,
             Background = Brushes.White, WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
-            ShowActivated = false, Topmost = true
+            ShowActivated = false, Topmost = false
         };
         _browserWindow.Deactivated += (_, _) =>
             _owner.Dispatcher.BeginInvoke(new Action(HideIfOtherAppActive),
@@ -773,8 +773,14 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
     public void Refresh()
     {
         if (_closed || _bubbleWindow is null || _browserWindow is null) return;
-        // The open Browser is its own opaque, bounded native window. Never
-        // hide or activate it just because another program becomes active.
+        // Preserve open state across ordinary focus changes. The owned,
+        // non-topmost window follows its owner in the normal Windows z-order.
+        if (_owner.WindowState == WindowState.Minimized)
+        {
+            if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
+            ReleaseGrip();
+            return; // Windows minimizes/restores the owned Browser with accounting.
+        }
         if (_panelOpen)
         {
             if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
@@ -789,7 +795,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         if (_browserWindow.IsVisible) _browserWindow.Hide();
         var accountingActive = _owner.IsActive || _bubbleWindow.IsActive ||
             _dialog?.IsActive == true;
-        if (_owner.WindowState == WindowState.Minimized || !accountingActive)
+        if (!accountingActive)
         {
             if (_bubbleWindow.IsVisible) _bubbleWindow.Hide();
             ReleaseGrip();

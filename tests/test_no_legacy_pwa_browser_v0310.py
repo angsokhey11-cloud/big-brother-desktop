@@ -25,8 +25,8 @@ checks={
         "document.body.classList.contains('bb-sidebar-collapsed')" in main,
     "No native mouse-blocking fullscreen overlay":
         "Topmost = true" not in main
-        and browser.count("Topmost = true") == 1
-        and "Topmost = true" in browser.split("_browserWindow = new Window",1)[1].split("};",1)[0]
+        and "Topmost = true" not in browser
+        and "Topmost = false" in browser.split("_browserWindow = new Window",1)[1].split("};",1)[0]
         and "Background = Brushes.White" in browser.split("_browserWindow = new Window",1)[1].split("};",1)[0]
         and "WebView2CompositionControl" not in main+browser,
 }

@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.29
+APPROVED_VERSION=0.3.30
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -305,4 +305,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User confirmed v0.3.27 native PDF attachment success, requested internal PDF viewing and explicitly requested that the open Browser remain visible while working in other Windows applications. User explicitly authorized v0.3.29 publication.
 - Includes v0.3.28 PDF viewer (Telegram preview popups, completed downloaded PDF and native local file picker) and v0.3.29 independent bounded opaque Browser, with only the launcher hidden on app switching. Manual minimize, full close, pointer-capture cleanup, existing photo/PDF sharing, and app shutdown cleanup retained.
 - First CI rejected outdated blanket topmost/ownership assertions. Updated legacy regression guards to require exactly one bounded opaque topmost Browser, non-topmost launcher, no composition overlay and no automatic focus stealing. Windows development CI run 45613977604 passed on exact main commit 791bc89779e2daede345276dd4bc145ff5868313. Actual PDF preview, independent visibility and other-app mouse interaction require Windows user testing.
+- Internal consent-controlled development prerelease only; no forced install or restart, staff production rollout, database migration, PWA or APK changes.
+
+
+## Approved v0.3.30 — Browser follows normal Windows stacking
+
+- User clarified after testing v0.3.29 that the Browser must remain associated with BIG BROTHER, not float above the desktop or other apps. User explicitly authorized publication of v0.3.30.
+- Restores owned, non-topmost Browser and normal Windows z-order while preserving open state across ordinary focus changes. Browser follows owner minimize/restore; manual minimize/close and pointer-capture safeguards retained. Native PDF viewer and sharing unchanged.
+- Windows development CI run 45616002227 passed on exact main commit 21595ce7ecc6e0e95c65641755adb74544499d71. Actual Windows stacking and focus behavior require device verification.
 - Internal consent-controlled development prerelease only; no forced install or restart, staff production rollout, database migration, PWA or APK changes.

@@ -10,8 +10,8 @@ refresh=browser.split("public void Refresh()",1)[1].split("public void HideIfOth
 checks={
     "Main deactivation releases existing drag capture":
         "Deactivated += (_, _) => ReleaseBrowserMouseCapture();" in main,
-    "Main minimizing preserves open browser and releases capture":
-        "_globalBrowser.Refresh(); // Open Browser stays visible; launcher hides." in main
+    "Main minimizing follows owner and releases capture":
+        "_globalBrowser.Refresh(); // Owned Browser follows accounting minimize/restore." in main
         and "ReleaseBrowserMouseCapture();" in main.split("StateChanged +=",1)[1].split("PreviewKeyDown +=",1)[0],
     "WPF browser drag guarded by pressed mouse button":
         "if (e.LeftButton != MouseButtonState.Pressed || _browserWindow is null) return;" in browser,
@@ -25,9 +25,9 @@ checks={
         "private void Minimize()" in browser and "private void CloseAll()" in browser,
     "Close and app exit dispose browser WebViews":
         "DisposeTabs();" in browser and "_globalBrowser.Dispose();" in main,
-    "Only visible opaque bounded browser is topmost; no transparent capture":
-        "Topmost = true" not in main and browser.count("Topmost = true")==1
-        and "Topmost = true" in panel and "Background = Brushes.White" in panel
+    "No topmost or transparent click capture":
+        "Topmost = true" not in main and "Topmost = true" not in browser
+        and "Topmost = false" in panel and "Background = Brushes.White" in panel
         and "AllowsTransparency" not in panel and "Topmost = false" in launcher
         and "WebView2CompositionControl" not in main+browser,
 }
