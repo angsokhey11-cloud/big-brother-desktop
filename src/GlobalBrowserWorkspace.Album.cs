@@ -14,6 +14,7 @@ internal sealed partial class GlobalBrowserWorkspace
 {
     private readonly RowDefinition _albumRow = new() { Height = new GridLength(0) };
     private readonly TextBlock _albumHint = new();
+    private DockPanel? _albumBar;
     private Button? _albumAttach;
     private Button? _albumDiscard;
     private string[]? _preparedAlbum;
@@ -42,7 +43,8 @@ internal sealed partial class GlobalBrowserWorkspace
     private void BuildAlbumBar()
     {
         _layout.RowDefinitions.Add(_albumRow);
-        var bar = new DockPanel { Background = Paint("#e2f4ec"), LastChildFill = true };
+        var bar = new DockPanel { Background = Paint("#e2f4ec"), LastChildFill = true, ClipToBounds = true };
+        _albumBar = bar;
         _albumAttach = Button("Attach album", "#14834c", "#ffffff", 116);
         _albumAttach.Height = 30;
         _albumAttach.Click += async (_, _) => await ArmAlbumAsync();
@@ -52,7 +54,9 @@ internal sealed partial class GlobalBrowserWorkspace
         {
             if (_albumBusy) return;
             await DisarmAlbumAsync();
+            var discarded = _preparedAlbum;
             _preparedAlbum = null;
+            if (discarded is not null) NativeAlbumTransfer.DiscardUnattached(discarded);
             RefreshAlbumBar();
         };
         DockPanel.SetDock(_albumDiscard, Dock.Right);
@@ -73,6 +77,7 @@ internal sealed partial class GlobalBrowserWorkspace
     private void RefreshAlbumBar(string? hint = null)
     {
         _albumRow.Height = new GridLength(_preparedAlbum is null ? 0 : 48);
+        if (_albumBar is not null) _albumBar.Visibility = _preparedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         if (_albumAttach is null || _albumDiscard is null) return;
         _albumAttach.Content = _albumArm is null
             ? $"Attach {_preparedAlbum?.Length ?? 0} photos" : "Cancel attach";
@@ -105,7 +110,9 @@ internal sealed partial class GlobalBrowserWorkspace
         }
         var tab = _active;
         var web = tab?.View.CoreWebView2;
-        if (tab is null || web is null || !IsTelegramWeb(web.Source))
+        var address = web?.Source;
+        var files = _preparedAlbum;
+        if (tab is null || web is null || address is null || files is null || !IsTelegramWeb(address))
         {
             RefreshAlbumBar("Select a Telegram Web tab and open the correct customer chat first.");
             return;
@@ -118,7 +125,7 @@ internal sealed partial class GlobalBrowserWorkspace
             var receiver = web.GetDevToolsProtocolEventReceiver("Page.fileChooserOpened");
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             var arm = new AlbumArm {
-                Tab = tab, Web = web, Address = web.Source, Files = _preparedAlbum.ToArray(),
+                Tab = tab, Web = web, Address = address, Files = files.ToArray(),
                 Receiver = receiver, Timer = timer
             };
             arm.Handler = async (_, args) => await HandleAlbumChooserAsync(arm, args);
