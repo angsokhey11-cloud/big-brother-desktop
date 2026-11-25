@@ -820,6 +820,68 @@ internal sealed class GlobalBrowserWorkspace : IDisposable
         if (_browserWindow.IsVisible) _browserWindow.Activate();
     }
 
+    // Only explicit Telegram Web/share URLs are intercepted from accounting.
+    // Blank/print popups and unrelated sites retain their existing behavior.
+    internal static bool TryTelegramShareUri(string? raw, out Uri target)
+    {
+        target = null!;
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort ||
+            uri.UserInfo.Length != 0) return false;
+        var web = string.Equals(uri.Host, "web.telegram.org",
+            StringComparison.OrdinalIgnoreCase);
+        var share = string.Equals(uri.Host, "t.me", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.TrimEnd('/').Equals("/share/url", StringComparison.Ordinal);
+        if (!web && !share) return false;
+        target = uri;
+        return true;
+    }
+
+    private static Uri? TabAddress(BrowserTab tab) =>
+        SettingsStore.TryWebAddress(tab.PendingUrl ?? tab.View.CoreWebView2?.Source,
+            out var current) ? current : null;
+
+    private static bool IsTelegramLanding(Uri target) =>
+        target.Host.Equals("web.telegram.org", StringComparison.OrdinalIgnoreCase) &&
+        target.Query.Length == 0 && target.Fragment.Length == 0 &&
+        target.AbsolutePath.TrimEnd('/') is "" or "/a" or "/k" or "/z";
+
+    public async Task OpenTelegramShareAsync(Uri target)
+    {
+        if (_closed || _browserWindow is null ||
+            !TryTelegramShareUri(target.AbsoluteUri, out var safe)) return;
+        // The normal Browser owns the tab and its persistent BrowserProfile.
+        // Do not reload a live Telegram chat for a generic share landing URL.
+        OpenFromDesktopMenu();
+        var candidates = _tabs.OrderByDescending(tab => ReferenceEquals(tab, _active));
+        var matching = candidates.FirstOrDefault(tab =>
+        {
+            var current = TabAddress(tab);
+            if (current is null) return false;
+            return IsTelegramLanding(safe)
+                ? current.Scheme == Uri.UriSchemeHttps &&
+                  current.Host.Equals("web.telegram.org", StringComparison.OrdinalIgnoreCase)
+                : string.Equals(current.AbsoluteUri, safe.AbsoluteUri, StringComparison.Ordinal);
+        });
+        if (matching is not null)
+        {
+            Activate(matching);
+            _status.Text = "Telegram opened in the existing Browser tab";
+            return;
+        }
+
+        // Preserve all other live tabs and any Telegram drafts. Use Home or a
+        // fresh tab for an explicit share URL, including its original query.
+        var tab = candidates.FirstOrDefault(each => each.IsHome) ?? CreateTab();
+        if (tab is null)
+        {
+            _status.Text = "Close a Browser tab, then retry Share to Telegram. No existing tab was overwritten.";
+            return;
+        }
+        Activate(tab);
+        await NavigateAsync(safe.AbsoluteUri);
+    }
+
     private void Open()
     {
         if (_closed) return;
