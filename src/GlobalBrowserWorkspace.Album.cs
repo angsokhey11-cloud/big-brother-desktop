@@ -33,6 +33,9 @@ internal sealed partial class GlobalBrowserWorkspace
         public bool Consuming { get; set; }
     }
 
+    private static bool IsPdfPackage(string[]? paths) => paths is { Length: 1 } &&
+        Path.GetExtension(paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+
     public bool HasPreparedAlbum => _preparedAlbum is not null || _albumBusy;
 
     private static bool IsTelegramWeb(string? address) =>
@@ -42,7 +45,9 @@ internal sealed partial class GlobalBrowserWorkspace
 
     private void BuildAlbumBar()
     {
-        _layout.RowDefinitions.Add(_albumRow);
+        // Keep sharing controls above the native WebView, not below the footer
+        // where a full-height Browser may extend beyond the visible screen.
+        _layout.RowDefinitions.Insert(4, _albumRow);
         var bar = new DockPanel { Background = Paint("#e2f4ec"), LastChildFill = true, ClipToBounds = true };
         _albumBar = bar;
         _albumAttach = Button("Attach album", "#14834c", "#ffffff", 116);
@@ -69,21 +74,33 @@ internal sealed partial class GlobalBrowserWorkspace
         _albumHint.TextWrapping = TextWrapping.Wrap;
         _albumHint.VerticalAlignment = VerticalAlignment.Center;
         bar.Children.Add(_albumHint);
-        Grid.SetRow(bar, 6);
+        Grid.SetRow(bar, 4);
         _layout.Children.Add(bar);
+        RefreshAlbumBar();
+    }
+
+    private void DiscardAlbumOnBrowserClose()
+    {
+        if (_albumBusy) return;
+        _ = DisarmAlbumAsync();
+        var discarded = _preparedAlbum;
+        _preparedAlbum = null;
+        if (discarded is not null) NativeAlbumTransfer.DiscardUnattached(discarded);
         RefreshAlbumBar();
     }
 
     private void RefreshAlbumBar(string? hint = null)
     {
-        _albumRow.Height = new GridLength(_preparedAlbum is null ? 0 : 48);
+        _albumRow.Height = new GridLength(_preparedAlbum is null ? 0 : 56);
         if (_albumBar is not null) _albumBar.Visibility = _preparedAlbum is null ? Visibility.Collapsed : Visibility.Visible;
         if (_albumAttach is null || _albumDiscard is null) return;
         _albumAttach.Content = _albumArm is null
-            ? $"Attach {_preparedAlbum?.Length ?? 0} photos" : "Cancel attach";
+            ? (IsPdfPackage(_preparedAlbum) ? "Attach PDF" : $"Attach {_preparedAlbum?.Length ?? 0} photos") : "Cancel attach";
         _albumAttach.IsEnabled = !_albumBusy;
         _albumDiscard.IsEnabled = !_albumBusy;
-        _albumHint.Text = hint ?? "Choose the correct Telegram chat, then Attach photos.";
+        _albumHint.Text = hint ?? (IsPdfPackage(_preparedAlbum) ? "Select the customer chat, then Attach PDF." : "Select the customer chat, then Attach photos.");
+        _layout.InvalidateMeasure();
+        _layout.InvalidateArrange();
     }
 
     public bool TrySetPreparedAlbum(string[] paths)
@@ -94,7 +111,7 @@ internal sealed partial class GlobalBrowserWorkspace
         _ = _owner.Dispatcher.BeginInvoke(new Action(async () =>
         {
             try { await OpenTelegramShareAsync(new Uri(TelegramUrl)); }
-            catch (Exception) { RefreshAlbumBar("Open Telegram in Browser, then attach the prepared photos."); }
+            catch (Exception) { RefreshAlbumBar("Open Telegram in Browser, then attach the prepared file(s)."); }
         }), DispatcherPriority.ContextIdle);
         return true;
     }
@@ -118,7 +135,7 @@ internal sealed partial class GlobalBrowserWorkspace
             return;
         }
         _albumBusy = true;
-        RefreshAlbumBar("Preparing the Telegram photo picker…");
+        RefreshAlbumBar(IsPdfPackage(files) ? "Preparing the Telegram document picker…" : "Preparing the Telegram photo picker…");
         try
         {
             await web.CallDevToolsProtocolMethodAsync("Page.enable", "{}");
@@ -134,19 +151,19 @@ internal sealed partial class GlobalBrowserWorkspace
             {
                 if (!ReferenceEquals(_albumArm, arm) || arm.Consuming) return;
                 await DisarmAlbumAsync();
-                RefreshAlbumBar("Photo picker timed out. Click Attach photos to retry.");
+                RefreshAlbumBar("Attachment picker timed out. Click Attach to retry.");
             };
             _albumArm = arm;
             await web.CallDevToolsProtocolMethodAsync("Page.setInterceptFileChooserDialog", "{\"enabled\":true}");
             if (!ReferenceEquals(_active, tab) || web.Source != arm.Address || _closed)
                 throw new InvalidOperationException("Telegram chat changed. Retry attachment.");
             timer.Start();
-            RefreshAlbumBar("Now click Telegram's paperclip → Photo or Video. Review order before sending.");
+            RefreshAlbumBar(IsPdfPackage(arm.Files) ? "Now click Telegram’s paperclip → Document or File. Check the PDF before sending." : "Now click Telegram's paperclip → Photo or Video. Review order before sending.");
         }
         catch (Exception)
         {
             await DisarmAlbumAsync();
-            RefreshAlbumBar("Could not prepare the photo picker. Retry or use the folder fallback.");
+            RefreshAlbumBar("Could not prepare the attachment picker. Retry or use the save/folder fallback.");
         }
         finally { _albumBusy = false; if (_albumAttach is not null) _albumAttach.IsEnabled = true; if (_albumDiscard is not null) _albumDiscard.IsEnabled = true; }
     }
@@ -157,7 +174,8 @@ internal sealed partial class GlobalBrowserWorkspace
         arm.Consuming = true;
         arm.Timer.Stop();
         _albumBusy = true;
-        RefreshAlbumBar("Attaching the ordered photos…");
+        var isPdf = IsPdfPackage(arm.Files);
+        RefreshAlbumBar(isPdf ? "Attaching the PDF…" : "Attaching the ordered photos…");
         try
         {
             if (!ReferenceEquals(_active, arm.Tab) || _browserWindow?.IsActive != true ||
@@ -165,16 +183,17 @@ internal sealed partial class GlobalBrowserWorkspace
                 throw new InvalidOperationException("Chat or Browser focus changed.");
             using var payload = JsonDocument.Parse(args.ParameterObjectAsJson);
             var root = payload.RootElement;
-            if (root.GetProperty("mode").GetString() != "selectMultiple" ||
+            var mode = root.GetProperty("mode").GetString();
+            if ((mode != "selectMultiple" && !(isPdf && mode == "selectSingle")) ||
                 !root.TryGetProperty("backendNodeId", out var backendId))
-                throw new InvalidOperationException("Choose the multi-photo picker, not a single-file picker.");
+                throw new InvalidOperationException(isPdf ? "Choose Telegram’s document picker." : "Choose the multi-photo picker, not a single-file picker.");
             int id = backendId.GetInt32();
             // Never attach customer pictures to a nested third-party frame.
             using var tree = JsonDocument.Parse(await arm.Web.CallDevToolsProtocolMethodAsync("Page.getFrameTree", "{}"));
             var mainFrame = tree.RootElement.GetProperty("frameTree").GetProperty("frame");
             if (mainFrame.GetProperty("id").GetString() != root.GetProperty("frameId").GetString() ||
                 !IsTelegramWeb(mainFrame.GetProperty("url").GetString()))
-                throw new InvalidOperationException("Only the main Telegram Web photo picker is permitted.");
+                throw new InvalidOperationException("Only the main Telegram Web attachment picker is permitted.");
             using var described = JsonDocument.Parse(await arm.Web.CallDevToolsProtocolMethodAsync("DOM.describeNode",
                 JsonSerializer.Serialize(new { backendNodeId = id })));
             var node = described.RootElement.GetProperty("node");
@@ -186,12 +205,17 @@ internal sealed partial class GlobalBrowserWorkspace
                 return "";
             }
             var accepts = Attr("accept");
+            var acceptsPhotos = accepts.Contains("image", StringComparison.OrdinalIgnoreCase) ||
+                accepts.Contains(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                accepts.Contains(".png", StringComparison.OrdinalIgnoreCase);
+            // PDF goes only to a generic document input or an explicitly PDF-capable input.
+            // An image-only or video-only picker must never receive our PDF.
+            var acceptsPdf = string.IsNullOrWhiteSpace(accepts) ||
+                accepts.Split(',').Any(x => x.Trim().ToLowerInvariant() is
+                    "*" or "*/*" or ".pdf" or "application/pdf" or "application/*");
             if (node.GetProperty("nodeName").GetString() != "INPUT" ||
-                Attr("type") != "file" ||
-                (!accepts.Contains("image", StringComparison.OrdinalIgnoreCase) &&
-                 !accepts.Contains(".jpg", StringComparison.OrdinalIgnoreCase) &&
-                 !accepts.Contains(".png", StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("Choose Telegram's Photo or Video picker.");
+                Attr("type") != "file" || (isPdf ? !acceptsPdf : !acceptsPhotos))
+                throw new InvalidOperationException(isPdf ? "Choose Telegram’s Document or File picker." : "Choose Telegram's Photo or Video picker.");
             if (!ReferenceEquals(_albumArm, arm) || !ReferenceEquals(_active, arm.Tab) ||
                 arm.Web.Source != arm.Address || _browserWindow?.IsActive != true ||
                 arm.Files.Any(p => !File.Exists(p)))
@@ -201,7 +225,7 @@ internal sealed partial class GlobalBrowserWorkspace
             await arm.Web.CallDevToolsProtocolMethodAsync("DOM.setFileInputFiles",
                 JsonSerializer.Serialize(new { files = arm.Files, backendNodeId = id }));
             _preparedAlbum = null;
-            _status.Text = "Photos handed to Telegram preview. Check order and recipient before Send.";
+            _status.Text = isPdf ? "PDF handed to Telegram preview. Check file and recipient before Send." : "Photos handed to Telegram preview. Check order and recipient before Send.";
         }
         catch (Exception error)
         {
@@ -211,7 +235,7 @@ internal sealed partial class GlobalBrowserWorkspace
         {
             await DisarmAlbumAsync();
             _albumBusy = false;
-            RefreshAlbumBar(_preparedAlbum is null ? null : "Photos not confirmed. Choose Photo or Video and retry, or use folder fallback.");
+            RefreshAlbumBar(_preparedAlbum is null ? null : (isPdf ? "PDF not confirmed. Choose Document or File and retry, or use Save PDF." : "Photos not confirmed. Choose Photo or Video and retry, or use folder fallback."));
         }
     }
 

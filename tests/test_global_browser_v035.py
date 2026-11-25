@@ -108,3 +108,26 @@ assert "TrySetPreparedAlbum(t.Paths)" in transfer and "OpenTelegramShareAsync(ne
 assert "for(let i=0;i<files.length;i++)" in patch and "summary:index===0&&i===0" in patch
 assert "Folder fallback" in bundle and "patch_desktop_native_ar_album(name, rel.as_posix(), data)" in bundle
 print("PASS scoped ordered native A/R photo staging and user-controlled Telegram picker guards")
+
+# Album controls must occupy their own visible row above the WebView and footer.
+assert "_layout.RowDefinitions.Insert(4, _albumRow);" in album
+assert "Grid.SetRow(bar, 4);" in album
+assert "Grid.SetRow(_content, 5);" in b and "Grid.SetRow(footer, 6);" in b
+assert "_layout.InvalidateMeasure();" in album
+assert "DiscardAlbumOnBrowserClose();" in b
+assert "NativeAlbumTransfer.DiscardUnattached(discarded);" in album
+print("PASS prepared album controls above Telegram and abandoned-album recovery")
+
+# PDF uses the same private native transfer, never a photo picker or auto-send.
+pdf=(root/"tools/native_ar_pdf_patch.js").read_text(encoding="utf-8")
+assert 'IsPdfPackage' in album and '"Attach PDF"' in album
+assert 'mode == "selectSingle"' in album and 'isPdf ? !acceptsPdf : !acceptsPhotos' in album
+assert '"application/pdf"' in album and 'Page.getFrameTree' in album
+assert 'items.Length == 1' in transfer and '"%PDF-"u8' in transfer
+assert 'Path.GetInvalidFileNameChars()' in transfer and 'names.Add(stem + ".pdf")' in transfer
+assert "patch_desktop_native_ar_pdf(name, rel.as_posix(), data)" in bundle
+assert "await prepareCustomerPdf(picked)" in bundle and "await transferNativePdf(prepared.file" in bundle
+assert "selectionSignature(selectedRows())===signature" in bundle
+assert "name:file.name" in pdf and "extension:'.pdf'" in pdf and "65*1024*1024" in pdf
+assert "await nativePdfRequest(token,'finish')" in pdf and "await nativePdfRequest(token,'abort')" in pdf
+print("PASS native PDF stage and document-picker isolation; existing ordered photo flow retained")

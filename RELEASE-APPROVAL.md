@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.25
+APPROVED_VERSION=0.3.27
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -290,4 +290,11 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 
 - User requested and explicitly approved publication of Windows native A/R album sharing using the existing Browser. The Desktop-only bundle patch preserves the selected summary-first photo order, groups of up to ten, and folder fallback. A restricted local transfer stages photos for an explicitly armed Telegram Web photo picker. The user chooses the recipient, verifies preview order, and sends manually. Non-photo documents retain their existing folder workflow. Android and PWA remain unchanged.
 - Windows development CI run 45607242189 passed on exact main commit 318383e50350aed1054fb9037ff8fca40dec1bd3. Simulated ordered-transfer checks passed; actual Telegram Web attachment compatibility and photo order remain unverified on the user's Windows device. Temporary attached files are retained until session cleanup, with stale unlocked session cleanup on subsequent use.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.27 — Native PDF sharing and visible album toolbar
+
+- User confirmed v0.3.25 native seven-photo Telegram attachment and correct arrangement on Windows. User requested native A/R PDF sharing and explicitly authorized v0.3.27 publication. This release includes the v0.3.26 toolbar relocation above Telegram and abandoned-album recovery, and extends the restricted native transfer to one authorized PDF (up to 65 MB) with safe filename handling and document picker validation. Existing PDF generation, authorization, save fallback, photo order, and user-controlled Send are retained. No PWA or APK changes.
+- Windows development CI run 45610285857 passed on exact main commit a5dac920445583acfdb599aafeea9acbced443eb. Simulated PDF transfer and cancellation checks passed. Actual Telegram PDF attachment and relocated toolbar remain to be tested on the user's Windows device.
 - Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
