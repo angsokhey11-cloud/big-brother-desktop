@@ -396,13 +396,13 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
 
         BuildBrandedHome();
         _content.Children.Add(_home);
-        Grid.SetRow(_content, 4);
+        Grid.SetRow(_content, 5);
         _layout.Children.Add(_content);
 
         var footer = new Grid { Background = Paint("#eff4fb") };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetRow(footer, 5);
+        Grid.SetRow(footer, 6);
         _layout.Children.Add(footer);
         _status.Text = "Home • saved websites stay on this device";
         _status.FontSize = 10;
@@ -903,6 +903,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
 
     private void CloseAll()
     {
+        DiscardAlbumOnBrowserClose();
         RememberBounds();
         ReleaseGrip();
         DisposeTabs();
