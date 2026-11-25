@@ -131,3 +131,15 @@ assert "selectionSignature(selectedRows())===signature" in bundle
 assert "name:file.name" in pdf and "extension:'.pdf'" in pdf and "65*1024*1024" in pdf
 assert "await nativePdfRequest(token,'finish')" in pdf and "await nativePdfRequest(token,'abort')" in pdf
 print("PASS native PDF stage and document-picker isolation; existing ordered photo flow retained")
+
+# PDF viewer remains in the shared Browser and does not change photo/PDF sharing.
+viewer=(root/"src/GlobalBrowserWorkspace.Pdf.cs").read_text(encoding="utf-8")
+assert "BuildPdfButton(tabsRow);" in b and "TrackTelegramPdfDownload(web, e)" in b
+assert "CoreWebView2DownloadState.Completed" in viewer and "IsLocalPdf(path)" in viewer
+assert 'header.SequenceEqual("%PDF-"u8)' in viewer and "new OpenFileDialog" in viewer
+assert "tab.View.CoreWebView2.Navigate(address);" in viewer
+assert "e.NewWindow = popup.View.CoreWebView2;" in viewer and "e.GetDeferral()" in viewer
+assert "IsTelegramPreviewPopup(web.Source, e.Uri, e.IsUserInitiated)" in b
+assert 'origin.Host.Equals("web.telegram.org"' in viewer and 'target.StartsWith("blob:"' in viewer
+assert "SettingsStore.Save" not in viewer and "DOM.setFileInputFiles" not in viewer
+print("PASS shared Browser PDF preview and completed-download viewer guards")

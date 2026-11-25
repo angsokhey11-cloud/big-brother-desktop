@@ -284,6 +284,7 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
         Grid.SetRow(tabsRow, 1);
         _layout.Children.Add(tabsRow);
 
+        BuildPdfButton(tabsRow);
         var tabScroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
@@ -1025,8 +1026,14 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
             web.Settings.AreHostObjectsAllowed = false;
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.IsStatusBarEnabled = false;
+            web.DownloadStarting += (_, e) => TrackTelegramPdfDownload(web, e);
             web.NewWindowRequested += (_, e) =>
             {
+                if (IsTelegramPreviewPopup(web.Source, e.Uri, e.IsUserInitiated))
+                {
+                    _ = OpenTelegramPreviewPopupAsync(e);
+                    return;
+                }
                 if (!SettingsStore.TryWebAddress(e.Uri, out var requested)) return;
                 e.Handled = true;
                 _owner.Dispatcher.BeginInvoke(new Action(async () =>
@@ -1042,9 +1049,8 @@ internal sealed partial class GlobalBrowserWorkspace : IDisposable
                     _ = DisarmAlbumAsync();
                     RefreshAlbumBar("Telegram navigated. Retry attachment in the correct chat.");
                 }
-                if (ReferenceEquals(_active, tab) &&
-                    SettingsStore.TryWebAddress(e.Uri, out var next))
-                    _address.Text = next.AbsoluteUri;
+                if (ReferenceEquals(_active, tab))
+                    _address.Text = e.Uri;
             };
             web.SourceChanged += (_, _) =>
             {
