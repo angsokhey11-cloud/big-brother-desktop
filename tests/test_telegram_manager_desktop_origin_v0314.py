@@ -57,3 +57,12 @@ assert "'admin-bank-review':{module:'admin_work',action:'view',adminOnly:true}" 
 assert 'window.loadWorkspace("admin-bank-history",false)' not in sections
 assert (directory/"big-brother-notification-center/bank-transaction-bulk-review.html").is_file()
 print("PASS Bank Review native route, local origin, and admin guard")
+
+# Directory saves must not open native WebView confirmation dialogs or rebuild sibling cards.
+review=(directory/"big-brother-notification-center/bank-transaction-bulk-review.html").read_text(encoding="utf-8")
+handler=review.split("async function rememberPayer(r){",1)[1].split("function setBusy(",1)[0]
+assert "confirmDirectoryChange(" in handler and "confirm(" not in handler and "prompt(" not in handler
+assert handler.count("finally{setDirectoryBusy(false,r)}")==2
+assert 'el("rows").inert=state' in review
+assert 'row.expanded=!row.expanded;renderRow(row)' in review
+print("PASS repeat directory save and customer focus guards")

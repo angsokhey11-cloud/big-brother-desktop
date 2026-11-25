@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.21
+APPROVED_VERSION=0.3.22
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -263,3 +263,10 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - User requested a Bank Review fix and Desktop delivery. Dashboard pin df86824fcc1c17d2be995b58a0a862abc618358b adds the dedicated permission-gated route and removes Bank History fallback navigation. Supabase Edge Function version 13 separately allows the exact installed Desktop origin while preserving the existing admin authorization and Telegram validation. Pending review data was not modified. User confirmed PWA Bank Review loads the existing batch.
 - Windows development build #122 succeeded on exact main commit c596d5613b16b1c08803a4acf0a42aa2c0906db4 (user-provided GitHub Actions screenshot). Existing regression guards include the dedicated local route and admin access. Installed Windows end-to-end acceptance remains pending.
 - Internal consent-controlled development prerelease only; no forced installation, staff production rollout, database migrations or accounting transaction changes.
+
+
+## Approved v0.3.22 — Repeat bank directory save and customer search focus
+
+- User confirmed the shared Bank Review fix works in Telegram Mini App and requested Windows delivery. Notification Center pin c636c02e6d5a14fc7a063d239e93815d2693fad2 replaces native directory confirmation popups with an in-page dialog and preserves unrelated transaction cards and selections during saves. Existing registration and directory RPCs, KHQR Hash-versus-STAND safeguards and admin checks remain unchanged.
+- Windows development CI run 45551899833 passed on exact main commit defbde09f989c69d7f8b58d16c15228cd34f855e. The previous build failed on an outdated exact-revision assertion; this was corrected without removing safety checks. Installed Windows focus behavior requires user acceptance testing.
+- Internal consent-controlled development prerelease only; no automatic installation or restart, staff production rollout, database migrations or accounting transaction changes.

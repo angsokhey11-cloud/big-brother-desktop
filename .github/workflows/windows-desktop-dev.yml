@@ -201,7 +201,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          vpk pack --packId BigBrother.Desktop --packVersion 0.3.21 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
+          vpk pack --packId BigBrother.Desktop --packVersion 0.3.22 --packDir publish --mainExe BIG-BROTHER-Desktop.exe --runtime win-x64 --channel dev --packAuthors "BIG BROTHER" --packTitle "BIG BROTHER Desktop" --framework webview2 --icon build/icon/big-brother.ico --outputDir releases --noPortable
           if ($LASTEXITCODE -ne 0) { throw "Windows Setup.exe packaging failed" }
           $setup = Get-ChildItem releases -Filter '*Setup.exe'
           if (-not $setup) { throw "No Windows Setup.exe produced" }

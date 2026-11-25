@@ -5,7 +5,7 @@ import json
 root=Path(__file__).resolve().parents[1]
 lock=json.loads((root/"config/modules.lock.json").read_text(encoding="utf-8"))
 pin=next(m["sha"] for m in lock["modules"] if m["name"]=="big-brother-notification-center")
-assert pin=="3923939f778d26d3af42b3991f52d93ea1765e8b","Wrong bank review revision"
+assert pin=="c636c02e6d5a14fc7a063d239e93815d2693fad2","Wrong bank review revision"
 site=root/"build/web/big-brother-notification-center"
 bulk=(site/"bank-transaction-bulk-review.html").read_text(encoding="utf-8")
 single=(site/"bank-transaction-batch-review.html").read_text(encoding="utf-8")

@@ -10,8 +10,8 @@ for label, source in [("installer CI", ci), ("release CI", publish)]:
     assert '--packTitle "BIG BROTHER Desktop (Development)"' not in source, label+": old display name remains"
     assert '--packId BigBrother.Desktop' in source, label+": package identity was changed"
     assert '--channel dev' in source, label+": updater feed changed unexpectedly"
-assert '--packVersion 0.3.21' in ci, "development pack version mismatch"
-assert '<Version>0.3.21</Version>' in project, "assembly version mismatch"
+assert '--packVersion 0.3.22' in ci, "development pack version mismatch"
+assert '<Version>0.3.22</Version>' in project, "assembly version mismatch"
 assert '--releaseName "BIG BROTHER Desktop $env:VERSION"' in publish, "GitHub release name still includes suffix"
 assert '--pre --tag $env:TAG' in publish, "dev prerelease status must remain intact"
 print("PASS Windows display name is BIG BROTHER Desktop")
