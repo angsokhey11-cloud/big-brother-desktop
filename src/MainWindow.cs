@@ -366,7 +366,7 @@ internal sealed class MainWindow : Window
             if (WindowState == WindowState.Minimized)
             {
                 ReleaseBrowserMouseCapture();
-                _globalBrowser.Hide();
+                _globalBrowser.Refresh(); // Open Browser stays visible; launcher hides.
             }
             else
             {

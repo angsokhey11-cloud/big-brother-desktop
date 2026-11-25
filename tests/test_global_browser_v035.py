@@ -143,3 +143,19 @@ assert "IsTelegramPreviewPopup(web.Source, e.Uri, e.IsUserInitiated)" in b
 assert 'origin.Host.Equals("web.telegram.org"' in viewer and 'target.StartsWith("blob:"' in viewer
 assert "SettingsStore.Save" not in viewer and "DOM.setFileInputFiles" not in viewer
 print("PASS shared Browser PDF preview and completed-download viewer guards")
+
+# Open Browser is independently visible without resurrecting the ghost overlay.
+panel=b.split("_browserWindow = new Window",1)[1].split("};",1)[0]
+launcher=b.split("_bubbleWindow = new Window",1)[1].split("};",1)[0]
+refresh=b.split("public void Refresh()",1)[1].split("public void HideIfOtherAppActive()",1)[0]
+deactivate=b.split("public void HideIfOtherAppActive()",1)[1].split("public void Hide()",1)[0]
+assert "Owner = _owner" not in panel and "Topmost = true" in panel
+assert "Background = Brushes.White" in panel and "AllowsTransparency" not in panel
+assert "ShowActivated = false" in panel and "Width = _settings.PanelWidth" in panel
+assert "Owner = _owner" in launcher and "Topmost = false" in launcher
+assert refresh.index("if (_panelOpen)") < refresh.index("WindowState == WindowState.Minimized")
+assert "_browserWindow.Show();" in refresh and "_browserWindow.Activate()" not in refresh
+assert "ReleaseGrip();" in deactivate and "Refresh();" in deactivate and "Hide();" not in deactivate
+assert "_globalBrowser.Refresh(); // Open Browser stays visible; launcher hides." in m
+assert "_globalBrowser.Hide();" in m.split("Closing +=",1)[1].split("Closed +=",1)[0]
+print("PASS independent bounded Browser, no focus steal, explicit close/minimize and launcher-only hiding")
