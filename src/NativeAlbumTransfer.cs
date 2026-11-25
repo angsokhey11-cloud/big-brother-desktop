@@ -119,7 +119,7 @@ internal sealed class NativeAlbumTransfer : IDisposable
     private void Begin(CoreWebView2Frame frame, string token, JsonElement files)
     {
         if (_transfer is not null || _browser.HasPreparedAlbum)
-            throw new InvalidOperationException("Attach or discard the previous album in Browser first.");
+            throw new InvalidOperationException("An album is already prepared. Use Attach photos or Discard above Telegram, or close Browser completely and retry.");
         if (files.ValueKind != JsonValueKind.Array || files.GetArrayLength() is < 1 or > 10)
             throw new InvalidOperationException("Prepare between 1 and 10 pictures per album.");
         var items = files.EnumerateArray().ToArray();
@@ -174,7 +174,7 @@ internal sealed class NativeAlbumTransfer : IDisposable
             t.Paths.Where((p, i) => new FileInfo(p).Length != t.Sizes[i]).Any())
             throw new InvalidOperationException("Album is incomplete.");
         if (!_browser.TrySetPreparedAlbum(t.Paths))
-            throw new InvalidOperationException("Attach or discard the previous album in Browser first.");
+            throw new InvalidOperationException("An album is already prepared. Use Attach photos or Discard above Telegram, or close Browser completely and retry.");
         _sessionBytes += t.Sizes.Sum();
         _transfer = null;
     }
