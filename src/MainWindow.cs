@@ -264,7 +264,7 @@ internal sealed class MainWindow : Window
     // from another application, an owned browser, or an open modal dialog.
     private void QueueWorkspaceFocus(bool invoiceFrame)
     {
-        if (_workspaceFocusQueued || _accountingDialogDepth != 0 || !IsActive) return;
+        if (_workspaceFocusQueued || _accountingDialogDepth != 0) return;
         _workspaceFocusQueued = true;
         _ = Dispatcher.BeginInvoke(new Action(async () =>
         {
