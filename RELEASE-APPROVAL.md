@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.23
+APPROVED_VERSION=0.3.24
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -276,4 +276,11 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 
 - User requested universal Windows focus recovery for function transitions and native dialog closure, and authorized publishing the update. Shared workspace signal covers all visible same-origin accounting modules and Dashboard Home; temporary blank and external frames are ignored. Existing active input selection, foreground-window safeguards, and accounting logic are preserved.
 - Windows development CI run 45555346368 passed on exact main commit efc0a118a7845c87ea5b1a74622e37682bd6eeab. Eight representative module paths and focus guard scenarios also passed simulated testing. Windows real-device acceptance remains pending.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.24 — Shared Telegram Browser routing
+
+- User requested that accounting Share to Telegram links use the existing native Browser and explicitly authorized publication. Accounting WebView routes HTTPS Telegram Web and t.me/share/url popup requests to the existing Browser profile and tabs; generic landing requests reuse a live Telegram tab. Existing tabs, print popups, document generation and direct bot sends are preserved. Explicit share links retain their URL. Runtime verification on Windows remains pending.
+- Windows development CI run 45578216148 passed on exact main commit 9f876c17eb9210ac0f05ad2c9b6718d52636e5aa.
 - Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
