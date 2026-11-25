@@ -35,3 +35,14 @@ for name,ok in checks.items():
  assert ok, "FAILED: "+name
  print("PASS",name)
 print("PASS Desktop System Alert and update branding.")
+
+# Workspace focus recovery is local and event-driven, never a global focus loop.
+focus=main.split("private void QueueWorkspaceFocus(bool invoiceFrame)",1)[1].split("public MainWindow()",1)[0]
+assert "WindowState == WindowState.Minimized" in focus and "!IsActive" in focus and "_accountingDialogDepth != 0" in focus
+assert "_workspaceView.Focus();" in focus and "DispatcherPriority.ContextIdle" in focus
+assert ".Activate()" not in focus and "DispatcherTimer" not in focus
+assert "bbDesktopInvoiceFocusReadyV1" in main and "WorkspaceFocusSignalScript" in main
+assert "frame.dataset.module!=='invoice'" in main and "frame.contentWindow.location.href" in main
+assert "QueueWorkspaceFocus(invoiceFrame: false);" in main and "_accountingDialogDepth--;" in main
+assert "QueueWorkspaceFocus(invoiceFrame: true);" in main
+print("PASS scoped native workspace and dialog focus recovery guards")
