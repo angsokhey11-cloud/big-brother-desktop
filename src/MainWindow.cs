@@ -51,6 +51,8 @@ internal sealed class MainWindow : Window
     private bool _invoiceScopeActive;
     private int _accountingDialogDepth;
     private bool _workspaceFocusQueued;
+    private readonly Queue<Uri> _pendingTelegramShares = new();
+    private bool _telegramShareDispatchQueued;
 
     // The embedded browser belongs to the Invoice Generator only. The browser
     // stays alive if the user switches accounting functions.
@@ -295,6 +297,40 @@ internal sealed class MainWindow : Window
         }), DispatcherPriority.ContextIdle);
     }
 
+    // Route explicit Telegram shares from any accounting iframe into the
+    // existing Browser. Do not intercept blank print windows or other sites.
+    private void OnAccountingNewWindowRequested(object? sender,
+        CoreWebView2NewWindowRequestedEventArgs args)
+    {
+        if (!GlobalBrowserWorkspace.TryTelegramShareUri(args.Uri, out var target)) return;
+        args.Handled = true;
+        _pendingTelegramShares.Enqueue(target);
+        QueueTelegramShareDispatch();
+    }
+
+    private void QueueTelegramShareDispatch()
+    {
+        if (_telegramShareDispatchQueued || _pendingTelegramShares.Count == 0) return;
+        _telegramShareDispatchQueued = true;
+        _ = Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            _telegramShareDispatchQueued = false;
+            // A share may open a Telegram popup and then a native accounting
+            // alert. Wait for that dialog to close and for our owner to be active.
+            if (!IsLoaded || !IsVisible || !IsActive ||
+                WindowState == WindowState.Minimized || _accountingDialogDepth != 0 ||
+                _pendingTelegramShares.Count == 0) return;
+            var target = _pendingTelegramShares.Dequeue();
+            try { await _globalBrowser.OpenTelegramShareAsync(target); }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.WriteLine("BIG BROTHER Telegram share browser: " + error.Message);
+                _workspaceStatus.Text = "Could not open Telegram in Browser. Retry Share to Telegram.";
+            }
+            QueueTelegramShareDispatch();
+        }), DispatcherPriority.ContextIdle);
+    }
+
     public MainWindow()
     {
         _globalBrowser = new GlobalBrowserWorkspace(this, _preferences);
@@ -315,6 +351,7 @@ internal sealed class MainWindow : Window
         SourceInitialized += (_, _) => _globalBrowser.Initialize();
         Activated += (_, _) => Dispatcher.BeginInvoke(
             new Action(_globalBrowser.Refresh), DispatcherPriority.ContextIdle);
+        Activated += (_, _) => QueueTelegramShareDispatch();
         Deactivated += (_, _) => Dispatcher.BeginInvoke(
             new Action(_globalBrowser.HideIfOtherAppActive), DispatcherPriority.ContextIdle);
         LocationChanged += (_, _) => _globalBrowser.Position();
@@ -1281,6 +1318,7 @@ internal sealed class MainWindow : Window
             web.Settings.AreHostObjectsAllowed = false;
             web.Settings.AreDefaultScriptDialogsEnabled = false;
             web.ScriptDialogOpening += OnAccountingScriptDialog;
+            web.NewWindowRequested += OnAccountingNewWindowRequested;
             // Enable only the one-way visibility signal from our installed
             // top-level Dashboard document. No privileged host objects or
             // accounting commands are exposed to the page.
@@ -1395,6 +1433,7 @@ internal sealed class MainWindow : Window
                 finally
                 {
                     _accountingDialogDepth--;
+                    QueueTelegramShareDispatch();
                     QueueWorkspaceFocus();
                 }
             }
