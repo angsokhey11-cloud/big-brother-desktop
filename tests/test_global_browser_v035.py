@@ -144,18 +144,25 @@ assert 'origin.Host.Equals("web.telegram.org"' in viewer and 'target.StartsWith(
 assert "SettingsStore.Save" not in viewer and "DOM.setFileInputFiles" not in viewer
 print("PASS shared Browser PDF preview and completed-download viewer guards")
 
-# Open Browser is independently visible without resurrecting the ghost overlay.
+# Owned Browser stays open across focus changes without floating above other apps.
 panel=b.split("_browserWindow = new Window",1)[1].split("};",1)[0]
 launcher=b.split("_bubbleWindow = new Window",1)[1].split("};",1)[0]
 refresh=b.split("public void Refresh()",1)[1].split("public void HideIfOtherAppActive()",1)[0]
 deactivate=b.split("public void HideIfOtherAppActive()",1)[1].split("public void Hide()",1)[0]
-assert "Owner = _owner" not in panel and "Topmost = true" in panel
+assert "Owner = _owner" in panel and "Topmost = false" in panel
 assert "Background = Brushes.White" in panel and "AllowsTransparency" not in panel
 assert "ShowActivated = false" in panel and "Width = _settings.PanelWidth" in panel
 assert "Owner = _owner" in launcher and "Topmost = false" in launcher
-assert refresh.index("if (_panelOpen)") < refresh.index("WindowState == WindowState.Minimized")
+assert refresh.index("WindowState == WindowState.Minimized") < refresh.index("if (_panelOpen)")
 assert "_browserWindow.Show();" in refresh and "_browserWindow.Activate()" not in refresh
 assert "ReleaseGrip();" in deactivate and "Refresh();" in deactivate and "Hide();" not in deactivate
-assert "_globalBrowser.Refresh(); // Open Browser stays visible; launcher hides." in m
+assert "_globalBrowser.Refresh(); // Owned Browser follows accounting minimize/restore." in m
 assert "_globalBrowser.Hide();" in m.split("Closing +=",1)[1].split("Closed +=",1)[0]
-print("PASS independent bounded Browser, no focus steal, explicit close/minimize and launcher-only hiding")
+print("PASS owned non-topmost Browser, persistent open state, no focus steal")
+
+assert "Topmost = true" not in b
+open_branch=refresh.split("if (_panelOpen)",1)[1].split("if (_browserWindow.IsVisible)",1)[0]
+assert "_browserWindow.Hide()" not in open_branch
+assert "Hide();" not in deactivate and "Refresh();" in deactivate
+assert "Windows minimizes/restores the owned Browser with accounting." in refresh
+print("PASS normal Windows z-order and owner minimize/restore without focus-loss hiding")

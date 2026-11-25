@@ -24,8 +24,8 @@ checks={
  "URL/shortcuts collapse persisted": 'SetAddressVisibility();' in s
        and 'SetShortcutVisibility();' in s
        and 'SettingsStore.Save(_settings);' in s,
- "No ghost input overlay": s.count("Topmost = true") == 1
-       and "Topmost = true" in s.split("_browserWindow = new Window",1)[1].split("};",1)[0]
+ "No ghost input overlay": "Topmost = true" not in s
+       and "Topmost = false" in s.split("_browserWindow = new Window",1)[1].split("};",1)[0]
        and "AllowsTransparency = true" not in s.split("_browserWindow = new Window",1)[1].split("};",1)[0]
        and 'WebView2CompositionControl' not in s
 }

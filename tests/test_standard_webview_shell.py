@@ -11,18 +11,18 @@ checks={
     "Dashboard remains HWND-hosted": "private readonly WebView2 _workspaceView = new();" in main,
     "Each browser tab uses HWND WebView2": "public WebView2 View { get; } = new();" in browser,
     "No composition WebView2 anywhere": "WebView2CompositionControl" not in main+browser,
-    "Only bounded opaque Browser is topmost": "Topmost = true" not in main
-        and browser.count("Topmost = true")==1 and "Topmost = true" in panel
+    "No always-on-top overlay": "Topmost = true" not in main
+        and "Topmost = true" not in browser and "Topmost = false" in panel
         and "Topmost = false" in launcher and "Background = Brushes.White" in panel
         and "AllowsTransparency" not in panel and "Width = _settings.PanelWidth" in panel
         and "Height = _settings.PanelHeight" in panel,
     "Browser bubble owned by dashboard": "Owner = _owner, Content = bubble," in browser,
-    "Browser native window independent of dashboard": "Owner = _owner" not in panel
+    "Browser native window owned by dashboard": "Owner = _owner" in panel
         and "ShowActivated = false" in panel,
-    "Open browser stays visible when focus moves": refresh.index("if (_panelOpen)") < refresh.index("WindowState == WindowState.Minimized")
+    "Open browser stays visible when focus moves": refresh.index("WindowState == WindowState.Minimized") < refresh.index("if (_panelOpen)")
         and "_browserWindow.Show();" in refresh and "_browserWindow.Activate()" not in refresh,
     "Main window deactivation refreshes launcher visibility": "new Action(_globalBrowser.HideIfOtherAppActive)" in main,
-    "Main window minimize keeps open browser; shutdown hides it": "_globalBrowser.Refresh(); // Open Browser stays visible; launcher hides." in main
+    "Main minimize follows owner; shutdown hides browser": "_globalBrowser.Refresh(); // Owned Browser follows accounting minimize/restore." in main
         and "_globalBrowser.Hide();" in main.split("Closing +=",1)[1].split("Closed +=",1)[0],
     "Browser never depends on Invoice iframe scope": "private void ApplyInvoiceScope(" not in browser
         and 'SourceInitialized += (_, _) => _globalBrowser.Initialize();' in main,
