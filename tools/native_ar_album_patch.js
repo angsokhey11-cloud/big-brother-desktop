@@ -47,7 +47,7 @@ async function prepareNativeAlbum(index){
   }
   if(sharePlan!==plan||!visible())throw Error('Summary closed. Album canceled.');
   await nativeAlbumRequest(token,'finish');finished=true;
-  if(sharePlan===plan&&visible())indicator(files.length+' photos ready in our Browser. Select the correct chat, click Attach photos, then Telegram’s Photo or Video. Check preview order before sending.');
+  if(sharePlan===plan&&visible())indicator(files.length+' photos ready in our Browser. Select the correct chat, click Attach photos above Telegram, then Telegram’s Photo or Video. Check preview order before sending.');
  }catch(error){
   if(started&&!finished)try{await nativeAlbumRequest(token,'abort')}catch(_){}
   if(sharePlan===plan&&visible())indicator(error?.message||'Could not prepare Windows album. Use the folder fallback.',true);
