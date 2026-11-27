@@ -172,3 +172,12 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No topmost/transparent full-screen overlay and no reintroduction of the native WebView2 ghost-click issue. No Supabase, Cloud Dashboard route, Local Brain, stock, bank, A/R, invoice financial rule or schema changes.
 - Windows development CI run **45018024705** passed: all 32 pinned frontend snapshots, explicit absent-legacy-PWA-browser bundle assertions, native menu and sidebar checks, Sales Support customer navigation, ghost-click/focus regressions, .NET warnings-as-errors compile, and Velopack installer packaging.
 - Approve consent-driven internal development prerelease only. Real PC test must verify Alt+Space browser access when sidebar collapsed and no old globe flash in Invoice Generator.
+
+
+## Approved v0.3.34 — shared offline UI and priority invoice history
+
+- User explicitly approved building and publishing the complete native development package.
+- Pin the PWA V180 dashboard, updated Sales Support, Monthly Sales and Invoice History. Retain other module pins and existing desktop native shell, updater and file integrations.
+- PC Invoice History requests ten invoices with products first, then twenty more at a time. Existing all-location view permission is preserved by the dedicated read RPC.
+- All nine shared mobile offline UI routes included in bundled source. Desktop business workflow and device acceptance still require testing.
+- Existing release workflow must pass compilation, bundling and regression guards before publication; no claim of completed CI or production acceptance.
