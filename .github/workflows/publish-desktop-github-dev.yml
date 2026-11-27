@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: big-brother-desktop-github-dev-release
@@ -61,6 +62,25 @@ jobs:
           "value=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
           Write-Host "Approved build: $tag"
+
+      # Release-specific gate: do not publish before the reviewed main CI succeeds.
+      - name: Verify exact v0.3.33 main development CI succeeded
+        shell: pwsh
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for ($i=0; $i -lt 120; $i++) {
+            $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/46060659731" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $run.head_sha -ne 'f8a08c9bdd78c26d1ce656780027c3b96794523d') { throw 'Could not verify approved main build' }
+            if ($run.status -eq 'completed') {
+              if ($run.conclusion -ne 'success') { throw "Main development CI did not pass: $($run.conclusion)" }
+              Write-Host 'Exact approved main CI succeeded.'
+              exit 0
+            }
+            Start-Sleep -Seconds 10
+          }
+          throw 'Main development CI has not finished; publication blocked.'
 
       - uses: actions/setup-python@v5
         with:
