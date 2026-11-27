@@ -1,6 +1,6 @@
 # Approved Desktop Development Update
 
-APPROVED_VERSION=0.3.10
+APPROVED_VERSION=0.3.31
 
 This approval is **for the internal BIG BROTHER Desktop development channel only**.
 
@@ -172,3 +172,152 @@ To approve the next version, bump the app/pack version, validate CI, update `APP
 - No topmost/transparent full-screen overlay and no reintroduction of the native WebView2 ghost-click issue. No Supabase, Cloud Dashboard route, Local Brain, stock, bank, A/R, invoice financial rule or schema changes.
 - Windows development CI run **45018024705** passed: all 32 pinned frontend snapshots, explicit absent-legacy-PWA-browser bundle assertions, native menu and sidebar checks, Sales Support customer navigation, ghost-click/focus regressions, .NET warnings-as-errors compile, and Velopack installer packaging.
 - Approve consent-driven internal development prerelease only. Real PC test must verify Alt+Space browser access when sidebar collapsed and no old globe flash in Invoice Generator.
+
+## Approved v0.3.11 — Batch invoice restore and collapsed-sidebar browser dock
+
+- User requested identical fixes for BIG BROTHER PWA and the installed Windows Desktop App.
+- Invoice Generator restores a previously selected valid Batch using the existing change handler so its authoritative Supabase Batch invoice-number RPC runs on reopen; Direct Sale continues with the normal sequence. No invoice-number, stock, payment or selling-date validation is bypassed.
+- Collapsing the desktop Dashboard sidebar reserves 430px on the right for the native floating Browser when the Invoice Generator is selected and the viewport is at least 1440px wide; unrelated modules and narrow/mobile layouts remain full width.
+- Pin Invoice Generator d4bd888868f5e479072f616efda8ac7778d2cc9d and Dashboard 5237c1bf86811fbba704c7aa2c339392eb796ece; keep the other 30 module SHAs fixed. The bundler recognizes Sales Support return-navigation protection already present in the updated Dashboard without duplicating it.
+- Development Windows CI run **45112630579** passed: all 32 module snapshots, navigation/browser/ghost-click regression tests, invoice resume/dock guard, .NET 10 compilation and Velopack installer packaging.
+- Publish only to the consent-controlled internal GitHub development prerelease channel. Do not automatically install or restart, migrate Supabase, edit accounting data, or authorize staff production rollout. Real Windows acceptance testing remains necessary.
+
+## Approved v0.3.12 — Clean one-row native browser toolbar and scrolling tabs
+
+- User-approved compact Windows Browser UI: remove visible “BIG BROTHER Browser • drag to move” title; retain an accessible left-hand native drag grip without a topmost or fullscreen overlay.
+- Put Shortcuts and + New Tab on the blue title toolbar beside the URL visibility control, minimize and Close buttons. The tab-only second row reclaims its former action-button width.
+- Hide the native tab strip's horizontal scrollbar; support regular mouse-wheel horizontal scrolling when tabs overflow. Automatically bring the selected tab into view after switching or opening it. Keep existing shortcut strip's mouse-wheel scrolling, drag reordering and persisted settings.
+- No Cloud/PWA, Local Brain, Supabase, accounting data, invoice-number, batch, sales, inventory, A/R, bank, or other business-logic changes. Keep previous 32 pinned accounting frontend module versions exactly as v0.3.11.
+- Windows development CI **45114332486** passed bundled modules, legacy browser/mouse-capture safeguards, new compact toolbar regression, .NET 10 warnings-as-errors compilation and Velopack installer packaging.
+- Approved for consent-controlled internal Desktop development prerelease only. No automatic installation or restart; production/staff approval requires real Windows acceptance testing.
+
+## Approved v0.3.13 — System Alert title and branded Main Server download progress
+
+- Replace the default Chromium JavaScript dialog heading (“app.bigbrother.test says”) only for the locally installed accounting WebView with an owner-bounded native **System Alert!** dialog. Preserve alert, confirm, prompt, and beforeunload decisions using WebView2 ScriptDialogOpening and a deferral. Use Website Alert for untrusted origins, without exposing privileged browser/host objects.
+- Brand the existing BIG BROTHER Desktop in-app updater and the lightweight fresh-PC online setup wizard with **BIG BROTHER Main Server** wording rather than showing raw GitHub progress labels to accounting users.
+- No backend hosting migration: the update feed still fetches approved public GitHub Releases and the online installer still verifies the GitHub SHA-256 release asset digest. Do not weaken checksum checks, authentication, release approval or consent requirements. Do not expose secrets or modify accounting business rules.
+- Existing 32 pinned accounting frontend modules, stock, invoice, banking, A/R, customer and Local Brain state remain unchanged.
+- Windows CI **45133752644** passed all module snapshots, new System Alert/update branding guard, native browser focus safeguards, warnings-as-errors .NET compilation, and Velopack packaging. Online setup CI **45133752816** passed.
+- Internal user-consent development prerelease only; real Windows acceptance for alert OK/Cancel/typed prompt, browser focus, update and new-PC installation remains required before staff rollout.
+
+## Approved v0.3.14 — Restore Telegram Manager embedded admin functions in Desktop
+
+- User reported white blank Telegram Manager screen and “This page could not be embedded” when opening Customer Bank Directory in installed Windows app.
+- Root cause: the Notification Center app.js constructs approved tool iframe URLs from TOOL_ORIGIN='https://angsokhey11-cloud.github.io' without a trailing slash. The desktop bundler's general first-party rewrite only matches URLs with trailing slashes; the app's actual synthetic origin is https://app.bigbrother.test, with GitHub Pages blocked for locally packaged accounting modules. Cross-origin iframe inspection fails and the manager's existing safety fallback clears the frame.
+- Desktop-only build-time exact-marker patch changes this single TOOL_ORIGIN to https://app.bigbrother.test for bundled big-brother-notification-center/app.js. It retains every explicit TOOL_PATHS allow-listed route, origin validation, stylesheet, existing admin permissions, backend and financial business rules; Cloud/PWA repo stays untouched.
+- New regression guard validates pinned local Customer Bank Directory, Bank Assistant Setup, and Telegram tools, retained same-origin check and a fail-closed build-time marker guard.
+- Keep all 32 accounting module pinned revisions unchanged from v0.3.13. No database, transactions, customer balance, bank register, local brain or profile changes.
+- Windows CI build **45153134142** passed 32-module bundling, new Telegram Manager local-origin regression, native UI guards, .NET 10 compilation and Velopack installer packaging.
+- Approved for consent-controlled internal Desktop development prerelease only. Real Windows verification of Telegram Manager tool loading, return navigation, login, and permission enforcement is still required before staff rollout.
+
+## Approved v0.3.15 — Reject shared merchant STAND IDs in Bank Review
+
+- In a Cambodian KHQR notification, STAND is a reused merchant terminal identifier, not an individual transaction reference. The correct transaction reference is the bank's printed Hash (or an explicit valid reference).
+- Bank Assistant Supabase Edge Function version 75 was separately deployed and verified against the exact provided Khmer notification. It keeps the Hash distinct from STAND, refuses to reuse the STAND as the transaction ID, and treats ambiguous numeric KHQR references as needing human review.
+- Repin only big-brother-notification-center at 3923939f778d26d3af42b3991f52d93ea1765e8b in the Desktop's 32 pinned accounting frontends. The Cloud review UI and installed Desktop review screens now flag long numeric KHQR references and explain that STAND must not be registered.
+- All other 31 frontend revision pins, Supabase data/schema, financial logic, bank balances, payments, A/R, warehouse, customer records and Telegram user settings remain unchanged.
+- Historic payment PAY-3402 uses the supplied shared STAND 0001037221 as its transaction ID; this update does NOT change historical payments, and the true reference must be independently verified before any correction.
+- Windows development CI **45164619712** passed the newly bundled KHQR reference guard, 32-module checks, native browser/ghost-click safeguards, .NET compilation, Velopack Windows installer packaging.
+- This remains an internal consent-controlled development prerelease. Real Windows bank-review UI acceptance and finance-team validation are required before staff rollout.
+
+## Approved v0.3.16 — Audited admin A/R bank payment reversal
+
+- New admin-only “Reverse A/R Bank Payment” screen under **All Receivable**. Search by payment ID, transaction ID, customer or invoice. Review affected invoices, original amount/payment date, new outstanding. Requires 12-500 character reason, exact payment ID typed, checkbox acknowledgment, browser confirmation.
+- NEW deployed server RPC `public.bb_ar_payment_reversal_v1`: only active admin with A/R Edit may search/preview/reverse. Atomic payment+allocation reversal, invoice A/R restoration, original payment/allocations retained in Sales History audit snapshots and additional bank audit log, concurrency token verification, and bank-reference release. No sale or stock reversal.
+- Version 1 handles **eligible direct bank A/R payments** only. Refuses cash payments, registered bank wallets/outlet shares, existing registrations/duplicates, linked deposits/refunds/requests, closed collection, returned invoices, multiple distinct references and inconsistent/duplicate allocations. No silent changes to other payments.
+- Tested read-only preview with authorized admin context. Executed a complete rehearsal reversal inside one SQL transaction followed by `ROLLBACK`, then independently verified the real payment and invoice and audit history were completely unchanged.
+- Only `big-brother-ar` frontend pin changes to `00df73a52c26c64e3381a88b38db83470d999700`. Other 31 accounting module revisions unchanged; no accounting records changed during installation. The server RPC is deployed separately to BIG BROTHER DEV Supabase, not packaged in the web bundle.
+- Windows dev CI **45180380213** passed 32 pinned frontends, Telegram Manager routing, existing browser stability checks, new audited A/R reversal bundle test, warnings-as-errors .NET compilation, Velopack packaging.
+- Internal development prerelease only; real Desktop admin review and reversal acceptance required before company rollout.
+
+
+## Approved v0.3.17 — Native Desktop update truck
+
+- User approved matching the Mobile truck animation for the internal Windows development channel. Native WPF owner-bounded non-topmost animation during checks and downloads, real download percentage, immediate Close and five-second completed-check dismissal. Preserve Velopack package identity, local update support, explicit download and restart decisions, and existing accounting frontend pins.
+- Windows development CI **45352193236** passed on exact main commit `af633eb35239a595528611756aadcb935ca931cf` including regression guards, compilation and development installer packaging. Release branch retains existing approval history; only this approval file differs from tested main source. Actual Windows update and UI acceptance remain pending.
+- Internal development prerelease only; no staff production approval, accounting data changes, or automatic installation/restart.
+
+
+## Approved v0.3.18 — Native maximized startup
+
+- User approved native WPF maximized startup on the internal Desktop development channel. Windows determines the monitor work area; standard window chrome, taskbar and manual restore remain available. Existing normal dimensions are retained for restore.
+- Windows main CI **45353633858** passed on exact commit `eebb58c6db9e17945957be84bf45f00622df6cb3`. Added startup regression guard and aligned version guards. Verified previous release tree differs from its tested main tree only in RELEASE-APPROVAL.md; no accounting frontend changes.
+- Internal development prerelease only. Actual monitor and DPI acceptance testing remains pending. No accounting data changes or automatic installation/restart.
+
+
+## Approved v0.3.19 — Stock allocation prefill date and form responsiveness
+
+- Shared Stock Management source commit 3762557b41f7b6067d05967845551c6c94dca986 resets transaction date to explicitly planned date or current Cambodia date and initializes selling date range to that date. Skips redundant movement/source initialization, retains editable fields, purchased/zero-cost separation, normal stock save and one-time consume; blocks Save during pending consume. No stock or financial records changed.
+- Shared PWA GitHub Pages deployment 45369542606 succeeded. Desktop pins only the corrected Stock Management module; Windows development CI 45369615647 passed on exact tested main commit 046222fa91737811348b612b48759e6f06f072bc, including new date and prefill regression checks and packaging. Real-device responsiveness remains to be tested.
+- Internal development prerelease only. No automatic installation or restart, production/staff rollout, database migration or accounting data changes.
+
+
+## Approved v0.3.20 — Exact planned batch transaction date
+
+- Stock Allocation source 75d05c92415b44fdd239286964c4465343241529 stores the explicitly planned issue date in the saved allocation; Stock Management source 01f80d059213639f37ea3c8941a5e14846136b84 loads that date, resets selling date range, and labels legacy creation date as a suggestion for verification. Both PWA deployments succeeded. User confirmed the matching Android implementation works on device on 24-Nov-2026 and requested Windows delivery.
+- Windows development CI 45372318625 passed on exact tested main commit cfacfe9133872787464e5975b0102d3525f0902d. Preserve only historical approval file from release branch. Internal development prerelease only; no data migration, no accounting record changes, no forced installation or restart. Windows on-device behavior still requires user confirmation.
+
+
+## Approved v0.3.21 — Bank Review navigation and Desktop access
+
+- User requested a Bank Review fix and Desktop delivery. Dashboard pin df86824fcc1c17d2be995b58a0a862abc618358b adds the dedicated permission-gated route and removes Bank History fallback navigation. Supabase Edge Function version 13 separately allows the exact installed Desktop origin while preserving the existing admin authorization and Telegram validation. Pending review data was not modified. User confirmed PWA Bank Review loads the existing batch.
+- Windows development build #122 succeeded on exact main commit c596d5613b16b1c08803a4acf0a42aa2c0906db4 (user-provided GitHub Actions screenshot). Existing regression guards include the dedicated local route and admin access. Installed Windows end-to-end acceptance remains pending.
+- Internal consent-controlled development prerelease only; no forced installation, staff production rollout, database migrations or accounting transaction changes.
+
+
+## Approved v0.3.22 — Repeat bank directory save and customer search focus
+
+- User confirmed the shared Bank Review fix works in Telegram Mini App and requested Windows delivery. Notification Center pin c636c02e6d5a14fc7a063d239e93815d2693fad2 replaces native directory confirmation popups with an in-page dialog and preserves unrelated transaction cards and selections during saves. Existing registration and directory RPCs, KHQR Hash-versus-STAND safeguards and admin checks remain unchanged.
+- Windows development CI run 45551899833 passed on exact main commit defbde09f989c69d7f8b58d16c15228cd34f855e. The previous build failed on an outdated exact-revision assertion; this was corrected without removing safety checks. Installed Windows focus behavior requires user acceptance testing.
+- Internal consent-controlled development prerelease only; no automatic installation or restart, staff production rollout, database migrations or accounting transaction changes.
+
+
+## Approved v0.3.23 — Universal workspace focus recovery
+
+- User requested universal Windows focus recovery for function transitions and native dialog closure, and authorized publishing the update. Shared workspace signal covers all visible same-origin accounting modules and Dashboard Home; temporary blank and external frames are ignored. Existing active input selection, foreground-window safeguards, and accounting logic are preserved.
+- Windows development CI run 45555346368 passed on exact main commit efc0a118a7845c87ea5b1a74622e37682bd6eeab. Eight representative module paths and focus guard scenarios also passed simulated testing. Windows real-device acceptance remains pending.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.24 — Shared Telegram Browser routing
+
+- User requested that accounting Share to Telegram links use the existing native Browser and explicitly authorized publication. Accounting WebView routes HTTPS Telegram Web and t.me/share/url popup requests to the existing Browser profile and tabs; generic landing requests reuse a live Telegram tab. Existing tabs, print popups, document generation and direct bot sends are preserved. Explicit share links retain their URL. Runtime verification on Windows remains pending.
+- Windows development CI run 45578216148 passed on exact main commit 9f876c17eb9210ac0f05ad2c9b6718d52636e5aa.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.25 — Native A/R album sharing pilot
+
+- User requested and explicitly approved publication of Windows native A/R album sharing using the existing Browser. The Desktop-only bundle patch preserves the selected summary-first photo order, groups of up to ten, and folder fallback. A restricted local transfer stages photos for an explicitly armed Telegram Web photo picker. The user chooses the recipient, verifies preview order, and sends manually. Non-photo documents retain their existing folder workflow. Android and PWA remain unchanged.
+- Windows development CI run 45607242189 passed on exact main commit 318383e50350aed1054fb9037ff8fca40dec1bd3. Simulated ordered-transfer checks passed; actual Telegram Web attachment compatibility and photo order remain unverified on the user's Windows device. Temporary attached files are retained until session cleanup, with stale unlocked session cleanup on subsequent use.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.27 — Native PDF sharing and visible album toolbar
+
+- User confirmed v0.3.25 native seven-photo Telegram attachment and correct arrangement on Windows. User requested native A/R PDF sharing and explicitly authorized v0.3.27 publication. This release includes the v0.3.26 toolbar relocation above Telegram and abandoned-album recovery, and extends the restricted native transfer to one authorized PDF (up to 65 MB) with safe filename handling and document picker validation. Existing PDF generation, authorization, save fallback, photo order, and user-controlled Send are retained. No PWA or APK changes.
+- Windows development CI run 45610285857 passed on exact main commit a5dac920445583acfdb599aafeea9acbced443eb. Simulated PDF transfer and cancellation checks passed. Actual Telegram PDF attachment and relocated toolbar remain to be tested on the user's Windows device.
+- Internal consent-controlled development prerelease only; no forced installation or restart, staff production rollout, database migration, or accounting transaction changes.
+
+
+## Approved v0.3.29 — Built-in PDF viewer and independent Browser
+
+- User confirmed v0.3.27 native PDF attachment success, requested internal PDF viewing and explicitly requested that the open Browser remain visible while working in other Windows applications. User explicitly authorized v0.3.29 publication.
+- Includes v0.3.28 PDF viewer (Telegram preview popups, completed downloaded PDF and native local file picker) and v0.3.29 independent bounded opaque Browser, with only the launcher hidden on app switching. Manual minimize, full close, pointer-capture cleanup, existing photo/PDF sharing, and app shutdown cleanup retained.
+- First CI rejected outdated blanket topmost/ownership assertions. Updated legacy regression guards to require exactly one bounded opaque topmost Browser, non-topmost launcher, no composition overlay and no automatic focus stealing. Windows development CI run 45613977604 passed on exact main commit 791bc89779e2daede345276dd4bc145ff5868313. Actual PDF preview, independent visibility and other-app mouse interaction require Windows user testing.
+- Internal consent-controlled development prerelease only; no forced install or restart, staff production rollout, database migration, PWA or APK changes.
+
+
+## Approved v0.3.30 — Browser follows normal Windows stacking
+
+- User clarified after testing v0.3.29 that the Browser must remain associated with BIG BROTHER, not float above the desktop or other apps. User explicitly authorized publication of v0.3.30.
+- Restores owned, non-topmost Browser and normal Windows z-order while preserving open state across ordinary focus changes. Browser follows owner minimize/restore; manual minimize/close and pointer-capture safeguards retained. Native PDF viewer and sharing unchanged.
+- Windows development CI run 45616002227 passed on exact main commit 21595ce7ecc6e0e95c65641755adb74544499d71. Actual Windows stacking and focus behavior require device verification.
+- Internal consent-controlled development prerelease only; no forced install or restart, staff production rollout, database migration, PWA or APK changes.
+
+## Approved v0.3.31 — Daily Sale Summary V2
+
+- User explicitly requested the native Desktop and Mobile APK auto-update publication, not just a web module deployment.
+- Pins Daily Sale Summary module revision 286603179439b4e233ad74011b34dc2eacd2c218. Responsive mobile views, shared HD digital report preview and pictures, dynamic report segmentation; existing PDF export, accounting rules and permissions unchanged.
+- Main Windows development build 46050089821 for exact source 5c030f33ecbdd6d47c3f35d6a23111e39071417d must complete successfully before publication; release workflow gates on that run and independently rebuilds and tests the package.
+- Internal consent-controlled development prerelease only; no forced install or restart or staff production rollout. Real device and Telegram image acceptance remain pending.
